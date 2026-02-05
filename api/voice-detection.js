@@ -2,7 +2,7 @@
 // POST /api/voice-detection
 
 // API Key for authentication (MUST be set in Vercel Environment Variables)
-const API_KEY = process.env.VOICE_DETECTION_API_KEY;
+const API_KEY = (process.env.VOICE_DETECTION_API_KEY || "").trim();
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
