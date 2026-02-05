@@ -63,7 +63,8 @@ export default async function handler(req, res) {
       success: true,
       message: "HoneyGuard API is active and ready",
       service: "HoneyGuard Scam Detection",
-      version: "1.0.0",
+      version: "2.0.0-aggressive",
+      buildTime: "2026-02-05T23:40:00Z",
       timestamp: new Date().toISOString(),
       endpoints: {
         analyze: "POST /api/honeypot",
@@ -699,4 +700,3 @@ function extractLocations(text) {
   
   return [...new Set(locations)].slice(0, 10);
 }
-// Build timestamp: 02/05/2026 23:38:10
