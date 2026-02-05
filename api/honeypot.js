@@ -142,6 +142,17 @@ export default async function handler(req, res) {
         conversationHistory || [],
       );
 
+      // EXTRACT INTEL FROM ALL SCAMMER MESSAGES (not just current message)
+      let allScammerText = textToAnalyze;
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        conversationHistory.forEach(msg => {
+          if (msg.sender === 'scammer' && msg.text) {
+            allScammerText += ' ' + msg.text;
+          }
+        });
+      }
+      const comprehensiveIntel = extractAllIntelligence(allScammerText);
+
       // Build response in GUVI expected format: {status, reply}
       const response = {
         status: "success",
@@ -155,7 +166,7 @@ export default async function handler(req, res) {
           riskLevel: analysisResult.riskLevel,
           riskScore: analysisResult.riskScore,
         },
-        extractedIntelligence: analysisResult.intelligence,
+        extractedIntelligence: comprehensiveIntel,
         patterns: analysisResult.patterns,
         recommendations: analysisResult.recommendations,
         agentNotes: analysisResult.notes,
@@ -919,4 +930,108 @@ function extractEmails(text) {
   const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
   const matches = text.match(emailPattern) || [];
   return [...new Set(matches)].slice(0, 5);
+}
+
+// COMPREHENSIVE INTELLIGENCE EXTRACTION - extracts from ALL scammer messages
+function extractAllIntelligence(allScammerText) {
+  return {
+    bankAccounts: extractBankAccounts(allScammerText),
+    upiIds: extractUPIIds(allScammerText),
+    phishingLinks: extractLinks(allScammerText),
+    phoneNumbers: extractPhoneNumbers(allScammerText),
+    aadhaarNumbers: extractAadhaarNumbers(allScammerText),
+    panNumbers: extractPANNumbers(allScammerText),
+    names: extractNamesAggressive(allScammerText),
+    locations: extractLocations(allScammerText),
+    coordinates: extractCoordinates(allScammerText),
+    emails: extractEmails(allScammerText),
+    familyNames: extractFamilyNames(allScammerText),
+    addresses: extractAddresses(allScammerText),
+  };
+}
+
+// AGGRESSIVE NAME EXTRACTION - handles Hindi and English patterns
+function extractNamesAggressive(text) {
+  const names = [];
+  
+  // English patterns
+  const englishPatterns = [
+    /(?:my name is|i am|this is|i'm|myself)\s+(?:Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/gi,
+    /(?:mr\.|mrs\.|ms\.|shri|smt\.?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/gi,
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?:\s+(?:speaking|here|calling|from|se))/gi,
+  ];
+  
+  // Hindi/Hinglish patterns - "Main [Name] hu", "Mera naam [Name] hai"
+  const hindiPatterns = [
+    /(?:main|mein|mai)\s+(?:Mr\.?|Mrs\.?|Ms\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:hu|hun|hoon|hai|h)/gi,
+    /(?:mera naam|mera name)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:hai|h)/gi,
+    /(?:yeh|ye|yah)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:bol raha|speaking)/gi,
+  ];
+  
+  // Extract from bank/organization patterns - "[Name] from SBI/RBI/Bank"
+  const orgPatterns = [
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:from|se)\s+(?:SBI|RBI|ICICI|HDFC|Bank|Police|CBI)/gi,
+  ];
+  
+  [...englishPatterns, ...hindiPatterns, ...orgPatterns].forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].length > 2) {
+        // Filter out common false positives
+        const name = match[1].trim();
+        const excludeWords = ['your', 'account', 'bank', 'money', 'otp', 'block', 'urgent', 'please', 'sir', 'madam'];
+        if (!excludeWords.includes(name.toLowerCase())) {
+          names.push(name);
+        }
+      }
+    }
+  });
+  
+  return [...new Set(names)].slice(0, 10);
+}
+
+// EXTRACT FAMILY NAMES - father's name, surname patterns
+function extractFamilyNames(text) {
+  const familyNames = [];
+  const patterns = [
+    /(?:father(?:'s)? name|pitaji ka naam|papa ka naam)\s*(?:is|hai)?\s*:?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/gi,
+    /(?:surname|family name|khandaan)\s*(?:is|hai)?\s*:?\s*([A-Z][a-z]+)/gi,
+    /(?:son of|daughter of|s\/o|d\/o)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/gi,
+  ];
+  
+  patterns.forEach(pattern => {
+    const matches = text.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1] && match[1].length > 1) {
+        familyNames.push(match[1].trim());
+      }
+    }
+  });
+  
+  return [...new Set(familyNames)].slice(0, 5);
+}
+
+// EXTRACT FULL ADDRESSES
+function extractAddresses(text) {
+  const addresses = [];
+  
+  // Look for pincode patterns with surrounding context
+  const pincodeContext = /([^.!?\n]{10,60}?\d{6}[^.!?\n]{0,30})/gi;
+  const matches = text.match(pincodeContext) || [];
+  matches.forEach(m => addresses.push(m.trim()));
+  
+  // Look for "address is/hai" patterns
+  const addressPatterns = [
+    /(?:address|pata)\s*(?:is|hai)\s*:?\s*([^.!?\n]{15,100})/gi,
+    /(?:located at|office at|branch at)\s*:?\s*([^.!?\n]{10,80})/gi,
+  ];
+  
+  addressPatterns.forEach(pattern => {
+    const addrMatches = text.matchAll(pattern);
+    for (const match of addrMatches) {
+      if (match[1]) addresses.push(match[1].trim());
+    }
+  });
+  
+  return [...new Set(addresses)].slice(0, 5);
 }
