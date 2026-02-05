@@ -76,9 +76,9 @@ export default async function handler(req, res) {
     try {
       // Handle various body formats
       let body = req.body;
-      
+
       // If body is a string, try to parse it
-      if (typeof body === 'string') {
+      if (typeof body === "string") {
         try {
           body = JSON.parse(body);
         } catch (e) {
@@ -86,28 +86,38 @@ export default async function handler(req, res) {
           body = { text: body };
         }
       }
-      
+
       // Ensure body is an object
       body = body || {};
 
       // Extract text content - handle GUVI's nested message format
-      const { text, message, content, input, query, data, sessionId, conversationHistory, metadata } = body;
-      
+      const {
+        text,
+        message,
+        content,
+        input,
+        query,
+        data,
+        sessionId,
+        conversationHistory,
+        metadata,
+      } = body;
+
       // Handle nested message object from GUVI format: {message: {sender, text, timestamp}}
       let textToAnalyze = "";
-      if (typeof message === 'object' && message !== null && message.text) {
+      if (typeof message === "object" && message !== null && message.text) {
         textToAnalyze = message.text;
-      } else if (typeof message === 'string') {
+      } else if (typeof message === "string") {
         textToAnalyze = message;
-      } else if (typeof text === 'string') {
+      } else if (typeof text === "string") {
         textToAnalyze = text;
-      } else if (typeof content === 'string') {
+      } else if (typeof content === "string") {
         textToAnalyze = content;
-      } else if (typeof input === 'string') {
+      } else if (typeof input === "string") {
         textToAnalyze = input;
-      } else if (typeof query === 'string') {
+      } else if (typeof query === "string") {
         textToAnalyze = query;
-      } else if (typeof data === 'string') {
+      } else if (typeof data === "string") {
         textToAnalyze = data;
       }
 
@@ -125,7 +135,10 @@ export default async function handler(req, res) {
       const analysisResult = analyzeForScam(textToAnalyze);
 
       // Generate honeypot reply that engages the scammer
-      const honeypotReply = generateHoneypotReply(textToAnalyze, analysisResult);
+      const honeypotReply = generateHoneypotReply(
+        textToAnalyze,
+        analysisResult,
+      );
 
       // Build response in GUVI expected format: {status, reply}
       const response = {
@@ -173,7 +186,7 @@ function generateSessionId() {
 // Generate honeypot reply to engage scammer and extract intelligence
 function generateHoneypotReply(scammerMessage, analysis) {
   const lowerMessage = scammerMessage.toLowerCase();
-  
+
   // Honeypot responses designed to keep scammer engaged and extract info
   const responses = {
     // For account/bank related scams
@@ -220,23 +233,48 @@ function generateHoneypotReply(scammerMessage, analysis) {
 
   // Select response category based on scam patterns detected
   let category = "default";
-  
-  if (lowerMessage.includes("account") || lowerMessage.includes("bank") || lowerMessage.includes("suspend") || lowerMessage.includes("block")) {
+
+  if (
+    lowerMessage.includes("account") ||
+    lowerMessage.includes("bank") ||
+    lowerMessage.includes("suspend") ||
+    lowerMessage.includes("block")
+  ) {
     category = "account";
-  } else if (lowerMessage.includes("verify") || lowerMessage.includes("otp") || lowerMessage.includes("confirm") || lowerMessage.includes("kyc")) {
+  } else if (
+    lowerMessage.includes("verify") ||
+    lowerMessage.includes("otp") ||
+    lowerMessage.includes("confirm") ||
+    lowerMessage.includes("kyc")
+  ) {
     category = "verification";
-  } else if (lowerMessage.includes("prize") || lowerMessage.includes("won") || lowerMessage.includes("lottery") || lowerMessage.includes("winner")) {
+  } else if (
+    lowerMessage.includes("prize") ||
+    lowerMessage.includes("won") ||
+    lowerMessage.includes("lottery") ||
+    lowerMessage.includes("winner")
+  ) {
     category = "prize";
-  } else if (lowerMessage.includes("urgent") || lowerMessage.includes("immediate") || lowerMessage.includes("today") || lowerMessage.includes("now")) {
+  } else if (
+    lowerMessage.includes("urgent") ||
+    lowerMessage.includes("immediate") ||
+    lowerMessage.includes("today") ||
+    lowerMessage.includes("now")
+  ) {
     category = "urgent";
-  } else if (lowerMessage.includes("pay") || lowerMessage.includes("transfer") || lowerMessage.includes("send") || lowerMessage.includes("upi")) {
+  } else if (
+    lowerMessage.includes("pay") ||
+    lowerMessage.includes("transfer") ||
+    lowerMessage.includes("send") ||
+    lowerMessage.includes("upi")
+  ) {
     category = "payment";
   }
-  
+
   // Pick a random response from the category
   const categoryResponses = responses[category];
   const randomIndex = Math.floor(Math.random() * categoryResponses.length);
-  
+
   return categoryResponses[randomIndex];
 }
 

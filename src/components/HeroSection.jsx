@@ -166,7 +166,12 @@ const HeroSection = () => {
               <Button
                 variant="outlined"
                 size="large"
-                onClick={() => window.open("https://github.com/utkarshware/Guvi_HoneyPot#readme", "_blank")}
+                onClick={() =>
+                  window.open(
+                    "https://github.com/utkarshware/Guvi_HoneyPot#readme",
+                    "_blank",
+                  )
+                }
                 sx={{
                   px: 5,
                   py: 1.5,

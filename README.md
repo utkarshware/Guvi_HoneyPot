@@ -5,23 +5,27 @@
 ## 🌟 Features
 
 ### 🎙️ Audio Analysis
+
 - **Voice Transcription**: Convert audio files to text using Azure Speech Services
 - **Multi-language Support**: 17+ languages including Hindi, Tamil, Telugu, Bengali
 - **Real-time Scam Detection**: Analyze transcribed text for scam patterns
 - **Risk Scoring**: Get confidence scores for fraud likelihood
 
 ### 📸 Screenshot Analysis
+
 - **OCR Text Extraction**: Extract text from images using Azure Computer Vision
 - **Pattern Recognition**: Detect phishing links, UPI IDs, phone numbers
 - **Intelligent Filtering**: Whitelist for legitimate domains (Lenskart, Amazon, WhatsApp, etc.)
 - **Sentiment Analysis**: Understand the emotional context of messages
 
 ### ❓ Fraud Q&A
+
 - **Interactive Assessment**: Answer questions about suspicious communications
 - **AI-powered Guidance**: Get personalized recommendations
 - **Educational Resources**: Learn to identify common scam tactics
 
 ### 📊 Session Dashboard
+
 - **Track Analyses**: View history of all scam detection sessions
 - **GUVI Integration**: Submit session data for evaluation
 - **Export Reports**: Download detailed analysis reports
@@ -41,6 +45,7 @@
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js 18+
 - npm or yarn
 - Azure Cognitive Services subscription
@@ -79,18 +84,21 @@ VITE_AZURE_VISION_ENDPOINT=https://eastus.api.cognitive.microsoft.com
 ## 📡 API Endpoints
 
 ### Honeypot API
+
 ```
 POST https://buildathon-honeyguard.vercel.app/api/honeypot
 Header: x-api-key: <your-api-key>
 ```
 
 ### Voice Detection API
+
 ```
 POST https://buildathon-honeyguard.vercel.app/api/voice-detection
 Header: x-api-key: <your-api-key>
 ```
 
 #### Request Body
+
 ```json
 {
   "text": "Your transcribed text or suspicious message",
@@ -99,6 +107,7 @@ Header: x-api-key: <your-api-key>
 ```
 
 #### Response
+
 ```json
 {
   "success": true,
@@ -131,12 +140,12 @@ Header: x-api-key: <your-api-key>
 
 HoneyGuard detects the following scam patterns:
 
-| Category | Examples |
-|----------|----------|
-| **Urgency Tactics** | urgent, immediately, blocked, expires |
+| Category               | Examples                              |
+| ---------------------- | ------------------------------------- |
+| **Urgency Tactics**    | urgent, immediately, blocked, expires |
 | **Financial Requests** | bank, account, UPI, transfer, lottery |
-| **Impersonation** | customer care, RBI, SBI, police |
-| **Data Requests** | OTP, password, PIN, CVV, KYC |
+| **Impersonation**      | customer care, RBI, SBI, police       |
+| **Data Requests**      | OTP, password, PIN, CVV, KYC          |
 
 ## 🔒 Security Features
 
@@ -155,6 +164,7 @@ Password: HoneyGuard2026!
 ## 🏆 GUVI India AI Buildathon 2026
 
 This project was built for the GUVI India AI Buildathon, showcasing:
+
 - Integration with Azure Cognitive Services
 - Real-world scam detection capabilities
 - Multi-language support for Indian languages

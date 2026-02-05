@@ -195,7 +195,14 @@ const AudioAnalysis = () => {
       const scamAnalysis = {
         isScam: riskScore >= 40,
         confidence: Math.min(95, 60 + riskScore * 0.35),
-        riskLevel: riskScore >= 70 ? "High" : riskScore >= 40 ? "Medium" : riskScore >= 20 ? "Low" : "Minimal",
+        riskLevel:
+          riskScore >= 70
+            ? "High"
+            : riskScore >= 40
+              ? "Medium"
+              : riskScore >= 20
+                ? "Low"
+                : "Minimal",
         riskScore: riskScore,
         patterns: [
           ...scamPatterns.urgencyTactics,
@@ -203,11 +210,18 @@ const AudioAnalysis = () => {
           ...scamPatterns.impersonation,
           ...scamPatterns.dataRequests,
         ],
-        recommendations: riskScore >= 70 
-          ? ["This is very likely a SCAM. Do NOT respond.", "Do NOT share OTPs or banking details."]
-          : riskScore >= 40 
-          ? ["Exercise caution with this communication.", "Verify the sender through official channels."]
-          : ["This appears safe, but always stay vigilant."],
+        recommendations:
+          riskScore >= 70
+            ? [
+                "This is very likely a SCAM. Do NOT respond.",
+                "Do NOT share OTPs or banking details.",
+              ]
+            : riskScore >= 40
+              ? [
+                  "Exercise caution with this communication.",
+                  "Verify the sender through official channels.",
+                ]
+              : ["This appears safe, but always stay vigilant."],
       };
       setProgress(70);
 

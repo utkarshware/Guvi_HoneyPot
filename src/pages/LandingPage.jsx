@@ -290,7 +290,12 @@ const LandingPage = () => {
                         background: "rgba(112, 161, 255, 0.1)",
                       },
                     }}
-                    onClick={() => window.open("https://github.com/utkarshware/Guvi_HoneyPot#readme", "_blank")}
+                    onClick={() =>
+                      window.open(
+                        "https://github.com/utkarshware/Guvi_HoneyPot#readme",
+                        "_blank",
+                      )
+                    }
                   >
                     Documentation
                   </Button>

@@ -62,7 +62,8 @@ export default async function handler(req, res) {
       success: true,
       service: "HoneyGuard Voice Detection API",
       version: "1.0.0",
-      description: "AI-powered voice/audio scam detection using Azure Speech Services",
+      description:
+        "AI-powered voice/audio scam detection using Azure Speech Services",
       endpoints: {
         GET: "Service information and health check",
         POST: "Analyze voice/audio for scam detection",
@@ -88,7 +89,8 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           error: "Missing required field",
-          message: "Please provide either 'text' (transcribed text) or 'audioBase64' (base64 encoded audio)",
+          message:
+            "Please provide either 'text' (transcribed text) or 'audioBase64' (base64 encoded audio)",
         });
       }
 
@@ -153,8 +155,10 @@ export default async function handler(req, res) {
 // Helper functions
 function simulateTranscription(language) {
   const samples = {
-    "en-IN": "Dear customer, your bank account has been blocked. Please share your OTP to verify.",
-    "hi-IN": "Your SBI account needs KYC update. Click link to update immediately.",
+    "en-IN":
+      "Dear customer, your bank account has been blocked. Please share your OTP to verify.",
+    "hi-IN":
+      "Your SBI account needs KYC update. Click link to update immediately.",
     default: "Urgent: Verify your account details to avoid suspension.",
   };
   return samples[language] || samples.default;
@@ -169,15 +173,68 @@ function analyzeForScamPatterns(text) {
     dataRequests: [],
   };
 
-  const urgencyWords = ["urgent", "immediately", "now", "quickly", "asap", "hurry", "deadline", "expires", "blocked", "suspended"];
-  const financialWords = ["bank", "account", "upi", "transfer", "payment", "money", "rupees", "lakh", "crore", "lottery", "prize", "winner"];
-  const impersonationWords = ["customer care", "bank official", "government", "police", "rbi", "income tax", "sbi", "hdfc", "icici"];
-  const dataWords = ["otp", "password", "pin", "cvv", "kyc", "aadhar", "pan", "verify", "details", "share"];
+  const urgencyWords = [
+    "urgent",
+    "immediately",
+    "now",
+    "quickly",
+    "asap",
+    "hurry",
+    "deadline",
+    "expires",
+    "blocked",
+    "suspended",
+  ];
+  const financialWords = [
+    "bank",
+    "account",
+    "upi",
+    "transfer",
+    "payment",
+    "money",
+    "rupees",
+    "lakh",
+    "crore",
+    "lottery",
+    "prize",
+    "winner",
+  ];
+  const impersonationWords = [
+    "customer care",
+    "bank official",
+    "government",
+    "police",
+    "rbi",
+    "income tax",
+    "sbi",
+    "hdfc",
+    "icici",
+  ];
+  const dataWords = [
+    "otp",
+    "password",
+    "pin",
+    "cvv",
+    "kyc",
+    "aadhar",
+    "pan",
+    "verify",
+    "details",
+    "share",
+  ];
 
-  urgencyWords.forEach(word => { if (lowerText.includes(word)) patterns.urgencyTactics.push(word); });
-  financialWords.forEach(word => { if (lowerText.includes(word)) patterns.financialRequests.push(word); });
-  impersonationWords.forEach(word => { if (lowerText.includes(word)) patterns.impersonation.push(word); });
-  dataWords.forEach(word => { if (lowerText.includes(word)) patterns.dataRequests.push(word); });
+  urgencyWords.forEach((word) => {
+    if (lowerText.includes(word)) patterns.urgencyTactics.push(word);
+  });
+  financialWords.forEach((word) => {
+    if (lowerText.includes(word)) patterns.financialRequests.push(word);
+  });
+  impersonationWords.forEach((word) => {
+    if (lowerText.includes(word)) patterns.impersonation.push(word);
+  });
+  dataWords.forEach((word) => {
+    if (lowerText.includes(word)) patterns.dataRequests.push(word);
+  });
 
   return patterns;
 }
