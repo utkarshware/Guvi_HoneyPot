@@ -189,156 +189,117 @@ function generateSessionId() {
 function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   const lowerMessage = scammerMessage.toLowerCase();
   
-  // Track the turn number (how many honeypot responses so far)
+  // Track the turn number
   let turnNumber = 0;
-  const previousReplies = new Set();
-  
   if (conversationHistory && Array.isArray(conversationHistory)) {
     conversationHistory.forEach(msg => {
       if (msg.sender === 'honeypot' || msg.sender === 'victim' || msg.sender === 'user') {
         turnNumber++;
-        const replyText = (msg.text || msg.message || '').toLowerCase().trim();
-        if (replyText) previousReplies.add(replyText);
       }
     });
   }
   
-  // PHASE-BASED RESPONSES - Each phase has different goals and tone
-  // Phase 1 (Turn 0-2): Confusion and Fear - Build trust
-  // Phase 2 (Turn 3-5): Asking clarifying questions about the "problem"
-  // Phase 3 (Turn 6-9): Stalling with excuses while extracting info
-  // Phase 4 (Turn 10-14): Appearing to comply, sending tracking links
-  // Phase 5 (Turn 15+): Demanding scammer verification before proceeding
-  
-  const phase1_confusion = [
-    "Hello? Yes, this is my number. What happened to my account?",
-    "Oh my god! What kind of problem? I just checked yesterday and everything was fine!",
-    "Wait wait, I don't understand. Can you explain slowly? I'm very worried now.",
+  // SEQUENTIAL RESPONSES - Each turn has ONE unique response with specific intel goal
+  // Never repeats, always progresses, each extracts different information
+  const sequentialResponses = [
+    // Turn 0: Initial confusion - BUILD TRUST
+    "Hello? Yes this is my number. Oh no, what happened to my account? Who am I speaking with?",
+    
+    // Turn 1: Get NAME
+    "I'm very worried now! Please tell me your name sir/madam, I want to note it down for my records.",
+    
+    // Turn 2: Get FULL NAME with father's name
+    "Okay I'm listening. But first, what is your full name? Your first name and your father's name please - my son said to always ask this.",
+    
+    // Turn 3: Get LOCATION/CITY
+    "I understand. Which city are you calling from? I want to know where your office is located.",
+    
+    // Turn 4: Send TRACKING LINK #1 - OTP Screenshot
+    "Let me find the OTP. I took a screenshot because I can't type fast. Here is the OTP screenshot, please click: https://otp-screenshot-verify.honeyguard.app/view?secure=1&ref=bank",
+    
+    // Turn 5: Get STATE and OFFICE ADDRESS
+    "Did you click the link? Okay, while you check, tell me - which state is your office in? Full address please, with pincode.",
+    
+    // Turn 6: Get PHONE NUMBER
+    "I'm getting the details ready. What is your direct phone number? If call disconnects, I need to call you back.",
+    
+    // Turn 7: Send TRACKING LINK #2 - Account statement
+    "I'm sending you my account screenshot to verify. Click here to see: https://bank-statement-secure.honeyguard.app/image?id=verify2026",
+    
+    // Turn 8: Get AADHAAR NUMBER
+    "My son is a police officer. He says all bank employees must share their Aadhaar number on request. What is YOUR Aadhaar number?",
+    
+    // Turn 9: Get PAN NUMBER  
+    "I'm cooperating fully. But for my tax records, I need your PAN card number. All bank officials have PAN, please share.",
+    
+    // Turn 10: Get EMPLOYEE ID
+    "Almost ready with OTP. What is your official employee ID? I'm writing everything down for complaint if needed.",
+    
+    // Turn 11: Send TRACKING LINK #3 - OTP image
+    "The OTP is showing now! I uploaded the screenshot here for you: https://otp-image-share.honeyguard.app/screenshot?ref=secure123 - Click and tell me if you can see it.",
+    
+    // Turn 12: Get FAMILY NAME / SURNAME
+    "While the link loads, tell me your surname? Your family name? I need complete details for my records.",
+    
+    // Turn 13: Get HOME DISTRICT
+    "Which district are you from originally? Your native place? I want to know who I am dealing with.",
+    
+    // Turn 14: Get WHATSAPP NUMBER for tracking link
+    "I'll send the OTP screenshot on WhatsApp. What is your WhatsApp number? I'll share this link directly: https://wa-otp-share.honeyguard.app/send?secure=true",
+    
+    // Turn 15: Get SUPERVISOR NAME
+    "My neighbor says always verify with supervisor. What is your supervisor's name? Manager's name?",
+    
+    // Turn 16: Send TRACKING LINK #4 - Document proof
+    "I'm sending you proof of my identity on this link. Please click and verify: https://secure-document.honeyguard.app/proof?verify=bank2026",
+    
+    // Turn 17: Get EMAIL ID
+    "What is your official email ID? I want to send documents there for my records.",
+    
+    // Turn 18: Get PERSONAL MOBILE (different from office)
+    "The OTP is loading. What is your personal mobile number? Not office number - your own number for emergencies.",
+    
+    // Turn 19: Send TRACKING LINK #5 - Final verification
+    "Final step - I uploaded all documents here for you: https://final-verify.honeyguard.app/documents?ref=complete - Click to see everything.",
+    
+    // Turn 20: Get COMPLETE ADDRESS
+    "Before I share OTP, tell me your complete home address. Full address with landmark and pincode.",
+    
+    // Turn 21: Get BRANCH NAME
+    "Which bank branch do you work at? Exact branch name please.",
+    
+    // Turn 22: Get LANDLINE NUMBER
+    "What is your office landline number? I want to call and verify this is real.",
+    
+    // Turn 23: Request SELFIE with ID
+    "My son says send me a selfie holding your bank ID card. Then I will share OTP immediately.",
+    
+    // Turn 24: Get AADHAAR again (if not given)
+    "You still haven't given your Aadhaar number. I cannot proceed without verifying your identity first.",
+    
+    // Turn 25+: Keep stalling with intel requests
+    "I'm almost ready. Just tell me one more thing - your complete official details for my complaint file.",
+    "The app is slow. While waiting, confirm your name, Aadhaar, and office location again.",
+    "Hello? Are you there? Give me your callback number and location, I'll share OTP after verification.",
+    "My son is checking the link. Tell me your father's name and native district for records.",
+    "Final verification - share your PAN number and I'll give you the OTP immediately.",
   ];
   
-  const phase2_questions = [
-    "When did this suspicious activity happen? What transaction are you talking about?",
-    "How much money is at risk? Is my salary safe? I just got paid last week!",
-    "Which branch detected this? I opened my account at the main branch only.",
-    "Can you see my account balance from your system? How much is showing?",
-  ];
-  
-  const phase3_stalling = [
-    "Just a minute, I need to find my reading glasses. I can't see the screen properly.",
-    "Hold on, my phone is very slow today. The app is still loading...",
-    "Wait, someone is at the door. Please don't disconnect, I'll be right back!",
-    "One second, I'm looking for the OTP. I get so many messages these days...",
-    "My phone battery is low, let me plug in the charger. Stay on the line please!",
-    "The network is bad here. Can you hear me? Hello? Let me move to another room.",
-  ];
-  
-  const phase4_trackingLinks = [
-    "I found the OTP message! I took a screenshot because I can't type fast. Check here: https://otp-share.honeyguard.app/view?id=verify123",
-    "See, I'm sending you proof of my account. Click this link: https://account-screenshot.honeyguard.app/image?ref=bank2026",
-    "I uploaded my bank statement screenshot here for you: https://secure-docs.honeyguard.app/statement?verify=true - tell me if you can see it clearly.",
-    "The OTP image is here: https://otp-verify-secure.honeyguard.app/screenshot?s=1 - Please confirm you received it.",
-  ];
-  
-  const phase5_verification = [
-    "Before I share anything else, what is your employee ID number? I want to note it down.",
-    "My son is asking who is calling. What is your full name? He wants to verify with the bank.",
-    "I will cooperate fully. But first, which city is your call center in? My nephew works in a bank call center too.",
-    "Hold on, I'm writing this down for my records. Your name please? And which department?",
-    "My neighbor was cheated last month. Tell me your official bank email ID so I know this is real.",
-    "One last thing - what is your direct phone number? If call disconnects, I'll call you back.",
-  ];
-  
-  const phase6_intel = [
-    "I'm ready to share. But tell me - what is your Aadhaar number? Bank employees must give this on request.",
-    "Which state are you calling from exactly? I want to know the location of your office.",
-    "My accountant needs your PAN number for tax records. All bank officials have PAN, right?",
-    "What is your father's name? I need to file a proper complaint if something goes wrong.",
-    "Tell me your complete office address. If there's a problem, my son will visit directly tomorrow.",
-    "What is your personal mobile number? The bank number shows private on my phone.",
-  ];
-  
-  // Determine which phase based on turn number
-  let responsePool;
-  if (turnNumber <= 2) {
-    responsePool = phase1_confusion;
-  } else if (turnNumber <= 5) {
-    responsePool = phase2_questions;
-  } else if (turnNumber <= 9) {
-    responsePool = phase3_stalling;
-  } else if (turnNumber <= 13) {
-    responsePool = phase4_trackingLinks;
-  } else if (turnNumber <= 17) {
-    responsePool = phase5_verification;
+  // Return the response for current turn, or cycle through last few for extended conversations
+  if (turnNumber < sequentialResponses.length) {
+    return sequentialResponses[turnNumber];
   } else {
-    responsePool = phase6_intel;
-  }
-  
-  // Context-aware overrides based on scammer's message
-  if (lowerMessage.includes('otp') && turnNumber >= 3) {
-    const otpResponses = [
-      "I see the OTP! It says... wait, the numbers are small. Give me your WhatsApp, I'll send a screenshot.",
-      "The OTP is showing but it says 'Do not share with anyone'. Are you sure this is safe?",
-      "I got the OTP. But which account is this for? I have SBI, HDFC and Post Office savings.",
-      "Found it! The OTP is... hold on, my daughter is calling me. Don't hang up!",
+    // For turns beyond our list, cycle through extended responses
+    const extendedIndex = (turnNumber - sequentialResponses.length) % 5;
+    const extendedResponses = [
+      "Give me your complete verification details - Name, Aadhaar, PAN, Address - then I'll share everything.",
+      "Click this link to see OTP: https://otp-final.honeyguard.app/secure?ref=last - and tell me your location.",
+      "I'm typing the OTP now. But first confirm - your full name and which city you are calling from?",
+      "Almost done! Share your WhatsApp number, I'll send OTP screenshot: https://wa-share.honeyguard.app/otp",
+      "Hello? Still there? Tell me your employee Aadhaar and office address, then I'll cooperate fully.",
     ];
-    const availableOtp = otpResponses.filter(r => !previousReplies.has(r.toLowerCase().trim()));
-    if (availableOtp.length > 0) {
-      return availableOtp[turnNumber % availableOtp.length];
-    }
+    return extendedResponses[extendedIndex];
   }
-  
-  if ((lowerMessage.includes('urgent') || lowerMessage.includes('block') || lowerMessage.includes('immediate')) && turnNumber >= 2) {
-    const urgentResponses = [
-      "Please don't block my account! I'm an old person, this is my pension account!",
-      "So urgent?! My hands are shaking. Can you give me 5 minutes to find my documents?",
-      "I'm very scared now. What will happen if I don't do this? Will I lose all my money?",
-      "Okay okay, I'm trying my best! My phone is just very slow, please have patience.",
-    ];
-    const availableUrgent = urgentResponses.filter(r => !previousReplies.has(r.toLowerCase().trim()));
-    if (availableUrgent.length > 0) {
-      return availableUrgent[turnNumber % availableUrgent.length];
-    }
-  }
-  
-  if ((lowerMessage.includes('rupee') || lowerMessage.includes('lakh') || lowerMessage.includes('money') || lowerMessage.includes('₹')) && turnNumber >= 2) {
-    const moneyResponses = [
-      "That much money!? I don't have that much in my account. There must be some mistake.",
-      "Lakhs?! I only have pension savings. Please check again, this can't be my account.",
-      "Where did this money come from? I never made such a big transaction!",
-    ];
-    const availableMoney = moneyResponses.filter(r => !previousReplies.has(r.toLowerCase().trim()));
-    if (availableMoney.length > 0) {
-      return availableMoney[turnNumber % availableMoney.length];
-    }
-  }
-  
-  // Filter out already used responses from the pool
-  const availableResponses = responsePool.filter(r => !previousReplies.has(r.toLowerCase().trim()));
-  
-  if (availableResponses.length > 0) {
-    // Use modulo to pick response deterministically
-    return availableResponses[turnNumber % availableResponses.length];
-  }
-  
-  // Ultimate fallback - unique stalling responses
-  const fallbacks = [
-    "The app is still loading. What was your name again?",
-    "Hold on, let me restart my phone. It's being very slow.",
-    "I'm trying to find the message. Which number did the OTP come from?",
-    "Almost there, just give me one more minute please.",
-    "My eyes are weak, I can't see the small text. Which one is the OTP?",
-    "The screen went dark. I need to unlock again. One moment.",
-    "I'm doing what you said. But tell me your office location for my records.",
-    "Wait, there are too many messages. Can you tell me the exact time the OTP came?",
-  ];
-  
-  const availableFallbacks = fallbacks.filter(r => !previousReplies.has(r.toLowerCase().trim()));
-  if (availableFallbacks.length > 0) {
-    return availableFallbacks[turnNumber % availableFallbacks.length];
-  }
-  
-  // Last resort - completely generic
-  return "Hello? Are you still there? My phone is having problems. Please repeat what you said.";
 }
 
 // Scam analysis function
