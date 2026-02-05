@@ -155,6 +155,10 @@ export default async function handler(req, res) {
         });
       }
       const comprehensiveIntel = extractAllIntelligence(allScammerText);
+      
+      // Debug: Show what text was analyzed for intel
+      comprehensiveIntel._debug_allScammerText = allScammerText.slice(0, 500);
+      comprehensiveIntel._debug_charCount = allScammerText.length;
 
       // Build response in GUVI expected format: {status, reply}
       const response = {
