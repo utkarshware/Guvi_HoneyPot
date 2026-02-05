@@ -189,133 +189,129 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   const lowerMessage = scammerMessage.toLowerCase();
   const historyLength = conversationHistory ? conversationHistory.length : 0;
   
-  // Extract previously used replies to avoid repetition
-  const previousReplies = [];
+  // Track the turn number (how many honeypot responses so far)
+  let turnNumber = 0;
+  const previousReplies = new Set();
+  
   if (conversationHistory && Array.isArray(conversationHistory)) {
     conversationHistory.forEach(msg => {
       if (msg.sender === 'honeypot' || msg.sender === 'victim' || msg.sender === 'user') {
-        previousReplies.push((msg.text || msg.message || '').toLowerCase());
+        turnNumber++;
+        const replyText = (msg.text || msg.message || '').toLowerCase().trim();
+        if (replyText) previousReplies.add(replyText);
       }
     });
   }
   
-  // Determine conversation stage based on history length
-  // Stage 0-1: Confused/surprised
-  // Stage 2-3: Concerned/worried  
-  // Stage 4-5: Starting to comply
-  // Stage 6+: Extracting scammer info
-  const stage = Math.min(Math.floor(historyLength / 2), 4);
+  // All unique responses, organized by progression
+  const allResponses = [
+    // Turn 0-1: Initial shock and confusion
+    "What?! My account is having issues? This is very concerning!",
+    "Oh no! Which account are you talking about? I have multiple accounts with different banks.",
+    
+    // Turn 2-3: Seeking more information
+    "Can you please tell me your name and employee ID for my records?",
+    "I'm worried now. What kind of suspicious activity did you detect exactly?",
+    
+    // Turn 4-5: Starting to appear compliant
+    "Okay, I want to help resolve this. What do you need me to do first?",
+    "I'm ready to cooperate. But can you give me a callback number in case we get disconnected?",
+    
+    // Turn 6-7: Appearing to comply while asking questions
+    "I'm looking at my phone now. The OTP message says not to share it with anyone. Are you sure this is safe?",
+    "Before I share anything, which branch are you calling from? I want to verify with my local branch.",
+    
+    // Turn 8-9: Extracting scammer information
+    "I'll share the details, but first tell me your supervisor's name so I can verify this call is legitimate.",
+    "My bank app is open. What's your official employee ID? I want to note it down for my records.",
+    
+    // Turn 10-11: More extraction
+    "I'm trying to find the OTP. Can you give me your direct phone number to call you back?",
+    "Wait, the message shows a different number. What's the official bank helpline I should call?",
+    
+    // Turn 12-13: Stalling and gathering info
+    "I need a moment. Can you spell out your full name for me? I'm writing this down.",
+    "Which department exactly handles these fraud cases? I want to report this properly.",
+    
+    // Turn 14-15: Continuing to stall
+    "My family member is calling me. Can you hold for 2 minutes? Don't hang up!",
+    "I'm just checking something on my computer. What website should I visit for verification?",
+    
+    // Turn 16+: Extended responses
+    "Sorry, my phone is slow. While I wait, can you tell me how many cases like mine you handle daily?",
+    "The app is loading. Just curious - how long have you been working at the bank?",
+    "Almost there! By the way, what's the address of your branch office?",
+    "I want to be careful. Can you give me your manager's contact number?",
+  ];
   
-  // Extract specific details mentioned by scammer
-  const mentionsOTP = lowerMessage.includes('otp');
-  const mentionsUPI = lowerMessage.includes('upi') || lowerMessage.includes('@');
-  const mentionsPIN = lowerMessage.includes('pin');
-  const mentionsEmail = lowerMessage.includes('email') || lowerMessage.includes('@');
-  const mentionsAccount = lowerMessage.match(/\d{10,}/);
-  const mentionsMinutes = lowerMessage.includes('minute') || lowerMessage.includes('hour');
+  // Add context-specific responses based on what scammer mentions
+  const contextResponses = [];
   
-  // Staged responses - progressing from confusion to "compliance"
-  const stagedResponses = {
-    // Stage 0: Initial confusion and surprise
-    stage0: [
-      "What?! My account is having issues? I wasn't aware of this!",
-      "Oh my god, what's happening? I use this account for all my savings!",
-      "This is shocking! I need to fix this immediately. What do I do?",
-      "Wait, which account are you talking about? I have several.",
-      "Blocked? But I just used my card yesterday! This can't be right.",
-    ],
-    // Stage 1: Seeking clarity
-    stage1: [
-      "Can you tell me exactly which account is affected? I'm very worried.",
-      "Please explain what kind of suspicious activity you detected.",
-      "I want to help resolve this. What steps should I take?",
-      "This is very concerning! How did this happen to my account?",
-      "Are you from the bank? How do I know this is legitimate?",
-    ],
-    // Stage 2: Starting to show concern and trust
-    stage2: [
-      "Okay, I trust you. Just tell me what I need to do step by step.",
-      "I'm ready to verify. What information do you need from me?",
-      "Please help me save my account. I'll do whatever it takes.",
-      "I can't afford to lose my money. How can we fix this right now?",
-      "You're from the bank so you must know what to do. Please guide me.",
-    ],
-    // Stage 3: Appearing to comply but asking questions
-    stage3: [
-      "I received the OTP. But before I share, which department are you from exactly?",
-      "I'm looking at my phone now. But first, can you confirm your employee ID?",
-      "I want to help but I'm nervous. What happens after I share this information?",
-      "My OTP is... wait, which number should I read to you? There are several messages.",
-      "I have my UPI app open. What's your official ID so I can send it?",
-    ],
-    // Stage 4: Extracting scammer information
-    stage4: [
-      "I'm trying to send you the details but I need your full name for my records.",
-      "Before I proceed, can you give me a callback number in case we get disconnected?",
-      "My bank says I should note down your employee details. Can you share them?",
-      "I'll share everything, but first give me your supervisor's name for verification.",
-      "Which branch office are you calling from? I want to visit in person too.",
-    ],
-  };
+  if (lowerMessage.includes('otp')) {
+    contextResponses.push(
+      "I see several OTP messages. Which one are you referring to? The one from 5 minutes ago?",
+      "The OTP I received shows it's from SBI but you mentioned a different bank earlier.",
+      "My OTP message says 'Never share this code'. Is there another way to verify?"
+    );
+  }
   
-  // Select responses based on stage
-  let responsePool = stagedResponses[`stage${stage}`] || stagedResponses.stage0;
+  if (lowerMessage.includes('upi') || lowerMessage.includes('pin')) {
+    contextResponses.push(
+      "My UPI PIN? My bank told me to never share that. Can your manager confirm this?",
+      "Which UPI app are you referring to? I use multiple ones.",
+      "For UPI verification, shouldn't I just visit the bank branch instead?"
+    );
+  }
   
-  // Add context-specific responses based on what scammer mentioned
-  if (mentionsOTP && stage >= 2) {
-    responsePool = [
-      ...responsePool,
-      "I have the OTP right here. It says... wait, should I read all 6 digits?",
-      "The OTP I received is... actually, why does the bank need this from me?",
-      "I see the OTP message. But it says not to share with anyone. Is this safe?",
+  if (lowerMessage.includes('minute') || lowerMessage.includes('hour') || lowerMessage.includes('block')) {
+    contextResponses.push(
+      "Please don't hang up! I'm getting my documents right now. What's your extension number?",
+      "I'm panicking! Can you extend the deadline while I find my account details?",
+      "Such urgency! This must be serious. What's the case reference number?"
+    );
+  }
+  
+  if (lowerMessage.includes('email') || lowerMessage.match(/[\w.-]+@[\w.-]+/)) {
+    contextResponses.push(
+      "That email address looks unusual. What's the official bank domain I should look for?",
+      "I'll send it to that email. But first, can you send me a verification email from your official ID?",
+      "Is that email on the bank's official domain? Let me check the bank website first."
+    );
+  }
+  
+  // Combine all responses, with context-specific ones taking priority for later turns
+  let combinedResponses = [...allResponses];
+  if (turnNumber >= 3 && contextResponses.length > 0) {
+    // Insert context responses after the natural progression point
+    combinedResponses = [
+      ...allResponses.slice(0, Math.min(turnNumber + 2, 8)),
+      ...contextResponses,
+      ...allResponses.slice(8)
     ];
   }
   
-  if (mentionsUPI && stage >= 2) {
-    responsePool = [
-      ...responsePool,
-      "My UPI ID is... can you tell me your UPI first so I know where to send?",
-      "I'm opening my UPI app. What's the exact amount I need to send for verification?",
-      "For UPI, do you need my ID or should I send money somewhere?",
-    ];
-  }
-  
-  if (mentionsPIN && stage >= 2) {
-    responsePool = [
-      ...responsePool,
-      "My PIN? Isn't that supposed to be secret? But if the bank needs it...",
-      "I'm hesitant to share my PIN. Can your supervisor confirm this is required?",
-      "The PIN for which card? I have debit and credit cards.",
-    ];
-  }
-  
-  if (mentionsMinutes && stage >= 1) {
-    responsePool = [
-      ...responsePool,
-      "Only a few minutes?! Please don't hang up, I'm getting my phone right now!",
-      "I'm panicking! Please stay on the line while I find my account details!",
-      "Such a short time! I'll do everything you say, just help me save my account!",
-    ];
-  }
-  
-  // Filter out responses already used in conversation
-  let availableResponses = responsePool.filter(r => 
-    !previousReplies.some(prev => prev.includes(r.toLowerCase().substring(0, 30)))
+  // Filter out any response that was already used
+  const availableResponses = combinedResponses.filter(r => 
+    !previousReplies.has(r.toLowerCase().trim())
   );
   
-  // If all responses used, rotate back to full pool to avoid empty array
-  if (availableResponses.length === 0) {
-    availableResponses = responsePool;
+  // Select response based on turn number for consistency
+  if (availableResponses.length > 0) {
+    // Use turn number to select, cycling through available responses
+    const index = turnNumber % availableResponses.length;
+    return availableResponses[index];
   }
   
-  // Use a hash of the message + timestamp for consistent but varied selection
-  const hashCode = (scammerMessage + Date.now()).split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0);
-    return a & a;
-  }, 0);
+  // Fallback: generate a dynamic response
+  const fallbackResponses = [
+    `I'm still looking for the ${lowerMessage.includes('otp') ? 'OTP' : 'information'} you requested. Please wait.`,
+    "My phone is running slow today. Can you tell me your employee details while I wait?",
+    "I want to help but I'm having trouble. What's your direct number to call you back?",
+    "Just a moment, I'm almost ready. Which bank branch should I visit if this call drops?",
+    "I'm cooperating as fast as I can. Can you give me a reference number for this case?",
+  ];
   
-  const index = Math.abs(hashCode) % availableResponses.length;
-  return availableResponses[index];
+  return fallbackResponses[turnNumber % fallbackResponses.length];
 }
 
 // Scam analysis function
