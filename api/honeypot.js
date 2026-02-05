@@ -138,6 +138,7 @@ export default async function handler(req, res) {
       const honeypotReply = generateHoneypotReply(
         textToAnalyze,
         analysisResult,
+        conversationHistory || [],
       );
 
       // Build response in GUVI expected format: {status, reply}
@@ -184,98 +185,137 @@ function generateSessionId() {
 }
 
 // Generate honeypot reply to engage scammer and extract intelligence
-function generateHoneypotReply(scammerMessage, analysis) {
+function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   const lowerMessage = scammerMessage.toLowerCase();
-
-  // Honeypot responses designed to keep scammer engaged and extract info
-  const responses = {
-    // For account/bank related scams
-    account: [
-      "Oh no! Why is my account being suspended? I just deposited money yesterday.",
-      "This is very concerning. Can you tell me which account you're referring to?",
-      "I have multiple bank accounts. Which one has the issue?",
-      "My account? But I just checked it this morning. What happened?",
+  const historyLength = conversationHistory ? conversationHistory.length : 0;
+  
+  // Extract previously used replies to avoid repetition
+  const previousReplies = [];
+  if (conversationHistory && Array.isArray(conversationHistory)) {
+    conversationHistory.forEach(msg => {
+      if (msg.sender === 'honeypot' || msg.sender === 'victim' || msg.sender === 'user') {
+        previousReplies.push((msg.text || msg.message || '').toLowerCase());
+      }
+    });
+  }
+  
+  // Determine conversation stage based on history length
+  // Stage 0-1: Confused/surprised
+  // Stage 2-3: Concerned/worried  
+  // Stage 4-5: Starting to comply
+  // Stage 6+: Extracting scammer info
+  const stage = Math.min(Math.floor(historyLength / 2), 4);
+  
+  // Extract specific details mentioned by scammer
+  const mentionsOTP = lowerMessage.includes('otp');
+  const mentionsUPI = lowerMessage.includes('upi') || lowerMessage.includes('@');
+  const mentionsPIN = lowerMessage.includes('pin');
+  const mentionsEmail = lowerMessage.includes('email') || lowerMessage.includes('@');
+  const mentionsAccount = lowerMessage.match(/\d{10,}/);
+  const mentionsMinutes = lowerMessage.includes('minute') || lowerMessage.includes('hour');
+  
+  // Staged responses - progressing from confusion to "compliance"
+  const stagedResponses = {
+    // Stage 0: Initial confusion and surprise
+    stage0: [
+      "What?! My account is having issues? I wasn't aware of this!",
+      "Oh my god, what's happening? I use this account for all my savings!",
+      "This is shocking! I need to fix this immediately. What do I do?",
+      "Wait, which account are you talking about? I have several.",
+      "Blocked? But I just used my card yesterday! This can't be right.",
     ],
-    // For verification/OTP scams
-    verification: [
-      "I can verify right away. What information do you need from me?",
-      "Sure, I want to fix this immediately. How do I verify?",
-      "I'm worried now. What details should I share for verification?",
-      "Yes, please help me verify. What's the process?",
+    // Stage 1: Seeking clarity
+    stage1: [
+      "Can you tell me exactly which account is affected? I'm very worried.",
+      "Please explain what kind of suspicious activity you detected.",
+      "I want to help resolve this. What steps should I take?",
+      "This is very concerning! How did this happen to my account?",
+      "Are you from the bank? How do I know this is legitimate?",
     ],
-    // For prize/lottery scams
-    prize: [
-      "I won something? That's amazing! How do I claim my prize?",
-      "Really? What did I win? I never win anything!",
-      "Wow! What do I need to do to receive the prize money?",
+    // Stage 2: Starting to show concern and trust
+    stage2: [
+      "Okay, I trust you. Just tell me what I need to do step by step.",
+      "I'm ready to verify. What information do you need from me?",
+      "Please help me save my account. I'll do whatever it takes.",
+      "I can't afford to lose my money. How can we fix this right now?",
+      "You're from the bank so you must know what to do. Please guide me.",
     ],
-    // For urgent/threat scams
-    urgent: [
-      "Please don't block my account! What should I do immediately?",
-      "I'm very worried now. How can I resolve this urgently?",
-      "This sounds serious. Please tell me what I need to do right now.",
+    // Stage 3: Appearing to comply but asking questions
+    stage3: [
+      "I received the OTP. But before I share, which department are you from exactly?",
+      "I'm looking at my phone now. But first, can you confirm your employee ID?",
+      "I want to help but I'm nervous. What happens after I share this information?",
+      "My OTP is... wait, which number should I read to you? There are several messages.",
+      "I have my UPI app open. What's your official ID so I can send it?",
     ],
-    // For payment/transfer scams
-    payment: [
-      "I can make the payment. Which account should I transfer to?",
-      "How much do I need to pay? I want to fix this today.",
-      "Should I use UPI or bank transfer? What's your payment ID?",
-    ],
-    // Default engaging responses
-    default: [
-      "I don't quite understand. Can you explain more about this issue?",
-      "This sounds important. Can you give me more details?",
-      "I want to cooperate. What exactly do you need from me?",
-      "Please help me understand. What should I do next?",
-      "I'm concerned about this. Can you tell me more?",
+    // Stage 4: Extracting scammer information
+    stage4: [
+      "I'm trying to send you the details but I need your full name for my records.",
+      "Before I proceed, can you give me a callback number in case we get disconnected?",
+      "My bank says I should note down your employee details. Can you share them?",
+      "I'll share everything, but first give me your supervisor's name for verification.",
+      "Which branch office are you calling from? I want to visit in person too.",
     ],
   };
-
-  // Select response category based on scam patterns detected
-  let category = "default";
-
-  if (
-    lowerMessage.includes("account") ||
-    lowerMessage.includes("bank") ||
-    lowerMessage.includes("suspend") ||
-    lowerMessage.includes("block")
-  ) {
-    category = "account";
-  } else if (
-    lowerMessage.includes("verify") ||
-    lowerMessage.includes("otp") ||
-    lowerMessage.includes("confirm") ||
-    lowerMessage.includes("kyc")
-  ) {
-    category = "verification";
-  } else if (
-    lowerMessage.includes("prize") ||
-    lowerMessage.includes("won") ||
-    lowerMessage.includes("lottery") ||
-    lowerMessage.includes("winner")
-  ) {
-    category = "prize";
-  } else if (
-    lowerMessage.includes("urgent") ||
-    lowerMessage.includes("immediate") ||
-    lowerMessage.includes("today") ||
-    lowerMessage.includes("now")
-  ) {
-    category = "urgent";
-  } else if (
-    lowerMessage.includes("pay") ||
-    lowerMessage.includes("transfer") ||
-    lowerMessage.includes("send") ||
-    lowerMessage.includes("upi")
-  ) {
-    category = "payment";
+  
+  // Select responses based on stage
+  let responsePool = stagedResponses[`stage${stage}`] || stagedResponses.stage0;
+  
+  // Add context-specific responses based on what scammer mentioned
+  if (mentionsOTP && stage >= 2) {
+    responsePool = [
+      ...responsePool,
+      "I have the OTP right here. It says... wait, should I read all 6 digits?",
+      "The OTP I received is... actually, why does the bank need this from me?",
+      "I see the OTP message. But it says not to share with anyone. Is this safe?",
+    ];
   }
-
-  // Pick a random response from the category
-  const categoryResponses = responses[category];
-  const randomIndex = Math.floor(Math.random() * categoryResponses.length);
-
-  return categoryResponses[randomIndex];
+  
+  if (mentionsUPI && stage >= 2) {
+    responsePool = [
+      ...responsePool,
+      "My UPI ID is... can you tell me your UPI first so I know where to send?",
+      "I'm opening my UPI app. What's the exact amount I need to send for verification?",
+      "For UPI, do you need my ID or should I send money somewhere?",
+    ];
+  }
+  
+  if (mentionsPIN && stage >= 2) {
+    responsePool = [
+      ...responsePool,
+      "My PIN? Isn't that supposed to be secret? But if the bank needs it...",
+      "I'm hesitant to share my PIN. Can your supervisor confirm this is required?",
+      "The PIN for which card? I have debit and credit cards.",
+    ];
+  }
+  
+  if (mentionsMinutes && stage >= 1) {
+    responsePool = [
+      ...responsePool,
+      "Only a few minutes?! Please don't hang up, I'm getting my phone right now!",
+      "I'm panicking! Please stay on the line while I find my account details!",
+      "Such a short time! I'll do everything you say, just help me save my account!",
+    ];
+  }
+  
+  // Filter out responses already used in conversation
+  let availableResponses = responsePool.filter(r => 
+    !previousReplies.some(prev => prev.includes(r.toLowerCase().substring(0, 30)))
+  );
+  
+  // If all responses used, rotate back to full pool to avoid empty array
+  if (availableResponses.length === 0) {
+    availableResponses = responsePool;
+  }
+  
+  // Use a hash of the message + timestamp for consistent but varied selection
+  const hashCode = (scammerMessage + Date.now()).split('').reduce((a, b) => {
+    a = ((a << 5) - a) + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  
+  const index = Math.abs(hashCode) % availableResponses.length;
+  return availableResponses[index];
 }
 
 // Scam analysis function
