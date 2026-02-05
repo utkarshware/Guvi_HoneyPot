@@ -63,8 +63,8 @@ export default async function handler(req, res) {
       success: true,
       message: "HoneyGuard API is active and ready",
       service: "HoneyGuard Scam Detection",
-      version: "6.1.2-conversation-fix",
-      buildTime: "2026-02-06T05:50:00Z",
+      version: "6.2.0-refined",
+      buildTime: "2026-02-06T05:55:00Z",
       timestamp: new Date().toISOString(),
       endpoints: {
         analyze: "POST /api/honeypot",
@@ -155,10 +155,6 @@ export default async function handler(req, res) {
         });
       }
       const comprehensiveIntel = extractAllIntelligence(allScammerText);
-      
-      // Debug: Show what text was analyzed for intel
-      comprehensiveIntel._debug_allScammerText = allScammerText.slice(0, 500);
-      comprehensiveIntel._debug_charCount = allScammerText.length;
 
       // Build response in GUVI expected format: {status, reply}
       const response = {
