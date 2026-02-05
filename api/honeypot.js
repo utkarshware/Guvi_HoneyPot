@@ -63,8 +63,8 @@ export default async function handler(req, res) {
       success: true,
       message: "HoneyGuard API is active and ready",
       service: "HoneyGuard Scam Detection",
-      version: "2.0.0-aggressive",
-      buildTime: "2026-02-05T23:40:00Z",
+      version: "3.0.0-comprehensive-intel",
+      buildTime: "2026-02-06T02:30:00Z",
       timestamp: new Date().toISOString(),
       endpoints: {
         analyze: "POST /api/honeypot",
