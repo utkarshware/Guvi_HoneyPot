@@ -63,8 +63,8 @@ export default async function handler(req, res) {
       success: true,
       message: "HoneyGuard API is active and ready",
       service: "HoneyGuard Scam Detection",
-      version: "4.1.0-no-loops",
-      buildTime: "2026-02-06T03:15:00Z",
+      version: "5.0.0-smart-no-loops",
+      buildTime: "2026-02-06T03:45:00Z",
       timestamp: new Date().toISOString(),
       endpoints: {
         analyze: "POST /api/honeypot",
@@ -200,16 +200,19 @@ function generateSessionId() {
 function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   const lowerMessage = scammerMessage.toLowerCase();
   
-  // Track the turn number and collect all messages
+  // Collect ALL messages for context
   let turnNumber = 0;
   let allScammerMessages = scammerMessage;
   let allHoneypotMessages = '';
+  let previousHoneypotResponses = [];
   
   if (conversationHistory && Array.isArray(conversationHistory)) {
     conversationHistory.forEach(msg => {
       if (msg.sender === 'honeypot' || msg.sender === 'victim' || msg.sender === 'user') {
         turnNumber++;
-        allHoneypotMessages += ' ' + (msg.text || msg.message || '');
+        const msgText = msg.text || msg.message || '';
+        allHoneypotMessages += ' ' + msgText;
+        previousHoneypotResponses.push(msgText.toLowerCase());
       }
       if (msg.sender === 'scammer') {
         allScammerMessages += ' ' + (msg.text || msg.message || '');
@@ -217,15 +220,21 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
     });
   }
   
-  // Track what info scammer has provided so far
+  // Track what info scammer has provided
   const providedInfo = {
     name: extractNamesAggressive(allScammerMessages).length > 0,
+    fatherName: /father(?:'s)?\s*name/i.test(allScammerMessages),
+    surname: /surname|kumar|sharma|singh|verma|gupta|patel|reddy|rao|jain|agarwal/i.test(allScammerMessages),
     phone: extractPhoneNumbers(allScammerMessages).length > 0,
+    whatsapp: /whatsapp|wa\./i.test(allScammerMessages),
     aadhaar: extractAadhaarNumbers(allScammerMessages).length > 0,
     pan: extractPANNumbers(allScammerMessages).length > 0,
     location: extractLocations(allScammerMessages).length > 0,
     coordinates: extractCoordinates(allScammerMessages).length > 0,
     email: extractEmails(allScammerMessages).length > 0,
+    address: /road|street|lane|colony|nagar|sector|floor|building|mall|market/i.test(allScammerMessages),
+    employeeId: /employee\s*id|emp\s*id|staff\s*id/i.test(allScammerMessages),
+    landmark: /landmark|near|mall|station|temple|hospital|school|college/i.test(allScammerMessages),
   };
   
   // DETECT SCAMMER REFUSING TO SHARE INFO
@@ -233,59 +242,248 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
                      lowerMessage.includes("cannot share") ||
                      lowerMessage.includes("not permitted") || 
                      lowerMessage.includes("not authorized") ||
-                     lowerMessage.includes("unable to share") ||
-                     lowerMessage.includes("sorry") ||
-                     lowerMessage.includes("i'm sorry") ||
-                     (lowerMessage.includes("can't") && lowerMessage.includes("security"));
+                     lowerMessage.includes("unable to") ||
+                     lowerMessage.includes("restricted") ||
+                     (lowerMessage.includes("sorry") && (lowerMessage.includes("can't") || lowerMessage.includes("cannot")));
   
-  // Track what we've already asked (to avoid loops)
-  const askedForAadhaar = allHoneypotMessages.toLowerCase().includes('aadhaar');
-  const askedForPAN = allHoneypotMessages.toLowerCase().includes('pan');
-  const askedForName = allHoneypotMessages.toLowerCase().includes('your name');
-  const askedForGPS = allHoneypotMessages.toLowerCase().includes('gps') || allHoneypotMessages.toLowerCase().includes('coordinates');
-  const askedForAddress = allHoneypotMessages.toLowerCase().includes('address');
+  // Generate SMART response - NEVER repeat
+  return getSmartResponse(turnNumber, providedInfo, isRefusing, previousHoneypotResponses, lowerMessage);
+}
+
+// ==== SMART RESPONSE GENERATOR - No Loops Ever ====
+function getSmartResponse(turn, info, isRefusing, previousResponses, currentMessage) {
   
-  // ==== REFUSAL HANDLING - POISON THE SCAMMER ====
+  // Helper to check if we already asked something similar
+  const alreadyAsked = (keywords) => {
+    return previousResponses.some(resp => 
+      keywords.some(kw => resp.includes(kw.toLowerCase()))
+    );
+  };
+  
+  // MASTER RESPONSE POOL - Categorized by what we want to extract
+  const responsePool = {
+    // Ask for NAME variations
+    askName: [
+      "But first tell me your name - who am I speaking with?",
+      "What is your good name? I always note who calls me.",
+      "Beta, tell me your name. I'm writing in my diary.",
+    ],
+    
+    // Ask for SURNAME/FAMILY
+    askSurname: [
+      "What is your surname? Your family name?",
+      "And what is your father's name? For complete verification.",
+      "What is your mother's name? My son always asks me to verify.",
+      "Tell me your family background - father's name, grandfather's name?",
+    ],
+    
+    // Ask for LOCATION
+    askLocation: [
+      "Which city are you calling from?",
+      "Where is your office located?",
+      "Are you calling from Mumbai, Delhi or which city?",
+      "Which state are you in right now?",
+    ],
+    
+    // Ask for ADDRESS
+    askAddress: [
+      "What is your complete office address? Building name, street, pincode?",
+      "Give me the full address - I want to visit your office tomorrow.",
+      "What is the nearest landmark to your office?",
+      "Which floor are you on? What building?",
+    ],
+    
+    // Ask for GPS
+    askGPS: [
+      "Open Google Maps on your phone and tell me the coordinates - latitude and longitude.",
+      "Share your live location on WhatsApp - I need to verify.",
+      "What does your phone GPS show? The numbers like 28.6139, 77.2090?",
+      "Send me Google Maps link of your current location.",
+    ],
+    
+    // Ask for PHONE
+    askPhone: [
+      "What is your personal mobile number? Not office number.",
+      "Give me your WhatsApp number so I can share screenshots.",
+      "What number should I call you back on?",
+      "Share your direct phone number for callback.",
+    ],
+    
+    // Ask for AADHAAR
+    askAadhaar: [
+      "My son is IPS officer, he says verify caller's Aadhaar. Share your 12-digit Aadhaar?",
+      "Real bank employees have Aadhaar ID. What is your Aadhaar number?",
+      "I need your Aadhaar for complaint filing - 12 digits please.",
+    ],
+    
+    // Ask for PAN
+    askPAN: [
+      "What is your PAN card number? Format like ABCDE1234F.",
+      "Share your PAN number for tax verification.",
+      "I need your PAN to verify you're real employee.",
+    ],
+    
+    // Ask for EMPLOYEE ID
+    askEmployeeId: [
+      "What is your employee ID number?",
+      "Share your bank employee ID for verification.",
+      "What is your staff ID? All bank employees have one.",
+    ],
+    
+    // POISONING responses - when scammer refuses
+    poison: [
+      "Ok fine, no problem. Here is OTP: 847392. Wait, it says expired... what is your employee ID?",
+      "Don't worry beta. OTP screenshot here: https://otp-geo-track.honeyguard.app/img?loc=1&ref=" + Math.random().toString(36).substr(2,6) + " - Just tell me your designation.",
+      "I understand security. My account number is 98765432109876. Now tell me YOUR name properly?",
+      "Theek hai beta. I'm opening banking app. Meanwhile what is your branch code?",
+      "No problem. I trust you. Click this to see OTP: https://bank-verify-geo.honeyguard.app/otp?track=" + Math.random().toString(36).substr(2,6) + " - What is your reporting manager's name?",
+      "Accha beta, I understand. Tell me about yourself - how long have you worked in bank?",
+      "Ok ok. My neighbor is also banker, he's coming. What is your official email ID?",
+      "Fine beta. But my phone is showing error. What is your landline number?",
+      "I called your SBI branch, they're asking which department you're from?",
+      "App crashed again! What is your branch address? I'll visit personally.",
+    ],
+    
+    // TRACKING LINK responses - Geo capture attempts
+    trackingLinks: [
+      "Here is OTP screenshot: https://otp-screenshot-geo.honeyguard.app/view?capture=1&id=" + Math.random().toString(36).substr(2,6) + " - Just confirm you received it.",
+      "I took photo of OTP, see here: https://secure-otp-image.honeyguard.app/pic?geo=track&ref=" + Math.random().toString(36).substr(2,6) + " - Let me know when you see it.",
+      "Opening this link to share my screen: https://screen-share-verify.honeyguard.app/live?location=1&session=" + Math.random().toString(36).substr(2,6),
+      "Bank statement screenshot: https://statement-geo-verify.honeyguard.app/doc?track=loc&id=" + Math.random().toString(36).substr(2,6) + " - Please verify.",
+    ],
+    
+    // EMOTIONAL manipulation
+    emotional: [
+      "Beta, I'm 72 years old. My husband passed away. Please don't cheat me.",
+      "I'm alone at home, very scared. Please tell me your full details so I know you're genuine.",
+      "I don't understand technology well. Can you come to my house? Where do you live?",
+      "My son is in America. You sound like a good boy. What is your father's name?",
+    ],
+    
+    // STALLING tactics
+    stalling: [
+      "Wait beta, someone is at door. Don't hang up. What is your phone number again?",
+      "Hold on, my phone is ringing. I'll share OTP in 2 minutes. What is your supervisor's number?",
+      "Let me find my reading glasses. Meanwhile tell me about your family.",
+      "My banking app needs update. It will take 10 minutes. Where exactly is your office?",
+    ],
+    
+    // ACKNOWLEDGMENT + new question (when scammer shares info)
+    acknowledge: [
+      "Good, I noted that. But I also need your full residential address.",
+      "Thank you beta. Now share your email ID for confirmation.",
+      "I wrote it down. What is your date of birth? Bank always asks.",
+      "Ok noted. Also share your alternate phone number.",
+      "Very good. Now I need your supervisor's name and contact.",
+    ],
+  };
+  
+  // ==== SMART SELECTION LOGIC ====
+  
+  // If scammer is refusing - use poisoning tactics
   if (isRefusing) {
-    return getPoisoningResponse(turnNumber, providedInfo, askedForAadhaar, askedForPAN, askedForGPS, askedForAddress);
+    const poisonResponses = responsePool.poison.filter(r => 
+      !previousResponses.some(prev => prev.includes(r.substring(0, 30).toLowerCase()))
+    );
+    if (poisonResponses.length > 0) {
+      return poisonResponses[turn % poisonResponses.length];
+    }
   }
   
-  // ==== CONTEXT-AWARE RESPONSES ====
+  // Build priority list of what to ask based on what we DON'T have
+  const needToAsk = [];
   
-  // If scammer provides name - extract and ask for more
-  if (lowerMessage.match(/(?:my name is|i am|this is|myself|name is)\s+\w+/i) || 
-      lowerMessage.match(/(?:mr\.|mrs\.|ms\.|shri)\s+\w+/i)) {
-    return getNameFollowUp(turnNumber, providedInfo, askedForAadhaar, askedForPAN);
+  if (!info.name && !alreadyAsked(['your name', 'who am i speaking'])) {
+    needToAsk.push({ pool: 'askName', priority: 10 });
+  }
+  if (!info.surname && !alreadyAsked(['surname', 'family name', "father's name"])) {
+    needToAsk.push({ pool: 'askSurname', priority: 9 });
+  }
+  if (!info.location && !alreadyAsked(['which city', 'where is your office'])) {
+    needToAsk.push({ pool: 'askLocation', priority: 8 });
+  }
+  if (!info.phone && !alreadyAsked(['mobile number', 'whatsapp number', 'phone number'])) {
+    needToAsk.push({ pool: 'askPhone', priority: 7 });
+  }
+  if (!info.address && !alreadyAsked(['complete address', 'building name', 'pincode'])) {
+    needToAsk.push({ pool: 'askAddress', priority: 6 });
+  }
+  if (!info.coordinates && !alreadyAsked(['gps', 'coordinates', 'latitude', 'longitude'])) {
+    needToAsk.push({ pool: 'askGPS', priority: 5 });
+  }
+  if (!info.aadhaar && !alreadyAsked(['aadhaar'])) {
+    needToAsk.push({ pool: 'askAadhaar', priority: 4 });
+  }
+  if (!info.pan && !alreadyAsked(['pan card', 'pan number'])) {
+    needToAsk.push({ pool: 'askPAN', priority: 3 });
+  }
+  if (!info.employeeId && !alreadyAsked(['employee id', 'staff id'])) {
+    needToAsk.push({ pool: 'askEmployeeId', priority: 2 });
   }
   
-  // If scammer provides address/location
-  if (lowerMessage.match(/(?:located|office|address|branch)\s+(?:at|in|is)/i) ||
-      lowerMessage.includes('road') || lowerMessage.includes('pin ') || lowerMessage.match(/\d{6}/)) {
-    return getAddressFollowUp(turnNumber, providedInfo);
+  // Sort by priority and pick the highest
+  needToAsk.sort((a, b) => b.priority - a.priority);
+  
+  // If we have something to ask, ask it
+  if (needToAsk.length > 0) {
+    const category = needToAsk[0].pool;
+    const responses = responsePool[category].filter(r => 
+      !previousResponses.some(prev => prev.includes(r.substring(0, 25).toLowerCase()))
+    );
+    if (responses.length > 0) {
+      // Every 3rd turn, send a tracking link
+      if (turn > 0 && turn % 3 === 0) {
+        const trackLinks = responsePool.trackingLinks.filter(r => 
+          !previousResponses.some(prev => prev.includes(r.substring(0, 30).toLowerCase()))
+        );
+        if (trackLinks.length > 0) {
+          return trackLinks[0];
+        }
+      }
+      return responses[0];
+    }
   }
   
-  // If scammer provides phone number
-  if (lowerMessage.match(/(?:\+91|91)?[\s-]?\d{10}/)) {
-    return getPhoneFollowUp(turnNumber, providedInfo);
+  // If scammer just shared info, acknowledge and ask for more
+  if (currentMessage.match(/my name is|surname is|father|located|address|phone|whatsapp/i)) {
+    const ackResponses = responsePool.acknowledge.filter(r => 
+      !previousResponses.some(prev => prev.includes(r.substring(0, 20).toLowerCase()))
+    );
+    if (ackResponses.length > 0) {
+      return ackResponses[turn % ackResponses.length];
+    }
   }
   
-  // If scammer provides coordinates
-  if (lowerMessage.match(/\d{1,3}\.\d{3,7}/)) {
-    return getCoordinateFollowUp(turnNumber, providedInfo);
+  // Every few turns, try emotional manipulation
+  if (turn % 5 === 4) {
+    const emotionalResponses = responsePool.emotional.filter(r => 
+      !previousResponses.some(prev => prev.includes(r.substring(0, 25).toLowerCase()))
+    );
+    if (emotionalResponses.length > 0) {
+      return emotionalResponses[0];
+    }
   }
   
-  // If scammer mentions OTP/urgent/block
-  if (lowerMessage.includes('otp') || lowerMessage.includes('urgent') || lowerMessage.includes('block')) {
-    return getUrgentResponses(turnNumber, providedInfo, askedForAadhaar, askedForPAN, askedForGPS);
+  // Fallback: stalling + tracking link
+  if (turn % 4 === 3) {
+    const stallingResponses = responsePool.stalling.filter(r => 
+      !previousResponses.some(prev => prev.includes(r.substring(0, 20).toLowerCase()))
+    );
+    if (stallingResponses.length > 0) {
+      return stallingResponses[0];
+    }
   }
   
-  // If scammer mentions bank/RBI/police threats
-  if (lowerMessage.includes('bank') || lowerMessage.includes('rbi') || lowerMessage.includes('police') || lowerMessage.includes('arrest')) {
-    return getThreatFollowUp(turnNumber, providedInfo);
+  // Last resort: send a tracking link
+  const trackLinks = responsePool.trackingLinks.filter(r => 
+    !previousResponses.some(prev => prev.includes(r.substring(0, 25).toLowerCase()))
+  );
+  if (trackLinks.length > 0) {
+    return trackLinks[turn % trackLinks.length];
   }
   
-  // DEFAULT: Use sequential responses
-  return getSequentialResponse(turnNumber, providedInfo);
+  // Ultimate fallback - never reached normally
+  return "Beta, my phone is very slow. Tell me everything again - your name, office, phone number?";
 }
 
 // ==== POISONING RESPONSES - When scammer refuses, waste their time ====
