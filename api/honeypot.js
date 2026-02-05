@@ -63,8 +63,8 @@ export default async function handler(req, res) {
       success: true,
       message: "HoneyGuard API is active and ready",
       service: "HoneyGuard Scam Detection",
-      version: "4.0.0-poisoning-tactics",
-      buildTime: "2026-02-06T03:00:00Z",
+      version: "4.1.0-no-loops",
+      buildTime: "2026-02-06T03:15:00Z",
       timestamp: new Date().toISOString(),
       endpoints: {
         analyze: "POST /api/honeypot",
@@ -352,8 +352,8 @@ function getPoisoningResponse(turn, info, askedAadhaar, askedPAN, askedGPS, aske
     "Banking app crashed! It's asking for recipient details. What is your full name, Aadhaar number, and bank account to send OTP verification?",
   ];
   
-  // Return based on turn number to ensure variety
-  return poisonTactics[(turn + Math.floor(Math.random() * 3)) % poisonTactics.length];
+  // Return based on turn number only - no randomness for consistency
+  return poisonTactics[turn % poisonTactics.length];
 }
 
 // Get response when scammer is urgent/pushy
@@ -1056,33 +1056,42 @@ function extractAllIntelligence(allScammerText) {
 function extractNamesAggressive(text) {
   const names = [];
   
-  // English patterns
+  // English patterns - more restrictive to avoid false positives
   const englishPatterns = [
-    /(?:my name is|i am|this is|i'm|myself)\s+(?:Mr\.?|Mrs\.?|Ms\.?|Shri|Smt\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/gi,
-    /(?:mr\.|mrs\.|ms\.|shri|smt\.?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/gi,
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})(?:\s+(?:speaking|here|calling|from|se))/gi,
+    /(?:my name is|i am|this is)\s+(?:Mr\.?|Mrs\.?|Ms\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi,
+    /(?:mr\.|mrs\.|ms\.|shri|smt\.?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi,
   ];
   
-  // Hindi/Hinglish patterns - "Main [Name] hu", "Mera naam [Name] hai"
+  // Hindi/Hinglish patterns - "Main [Name] hu"
   const hindiPatterns = [
-    /(?:main|mein|mai)\s+(?:Mr\.?|Mrs\.?|Ms\.?)?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:hu|hun|hoon|hai|h)/gi,
-    /(?:mera naam|mera name)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:hai|h)/gi,
-    /(?:yeh|ye|yah)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:bol raha|speaking)/gi,
+    /(?:main|mein)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:hu|hun|hoon)/gi,
+    /(?:mera naam|mera name)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:hai|h)/gi,
   ];
   
   // Extract from bank/organization patterns - "[Name] from SBI/RBI/Bank"
   const orgPatterns = [
-    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s+(?:from|se)\s+(?:SBI|RBI|ICICI|HDFC|Bank|Police|CBI)/gi,
+    /(?:i am|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:from|se)\s+(?:SBI|RBI|ICICI|HDFC|Bank|Police|CBI)/gi,
+  ];
+  
+  // Common false positive words to exclude
+  const excludeWords = [
+    'your', 'account', 'bank', 'money', 'otp', 'block', 'urgent', 'please', 
+    'sir', 'madam', 'sorry', 'unable', 'cannot', 'calling', 'from', 'matter',
+    'this', 'that', 'the', 'hello', 'yes', 'send', 'share', 'details',
+    'personal', 'information', 'security', 'reasons', 'just', 'immediately',
+    'will', 'can', 'not', 'department', 'office', 'head', 'branch', 'employee',
+    'sbi', 'rbi', 'icici', 'hdfc', 'axis', 'pnb', 'bob'
   ];
   
   [...englishPatterns, ...hindiPatterns, ...orgPatterns].forEach(pattern => {
     const matches = text.matchAll(pattern);
     for (const match of matches) {
-      if (match[1] && match[1].length > 2) {
-        // Filter out common false positives
+      if (match[1] && match[1].length > 2 && match[1].length < 30) {
         const name = match[1].trim();
-        const excludeWords = ['your', 'account', 'bank', 'money', 'otp', 'block', 'urgent', 'please', 'sir', 'madam'];
-        if (!excludeWords.includes(name.toLowerCase())) {
+        // Check that no word in name is in exclude list
+        const nameWords = name.toLowerCase().split(/\s+/);
+        const isValid = !nameWords.some(word => excludeWords.includes(word));
+        if (isValid && /^[A-Z][a-z]+/.test(name)) {
           names.push(name);
         }
       }
