@@ -1,8 +1,8 @@
 // Vercel Serverless API Endpoint for GUVI HoneyPot Evaluation
 // POST /api/honeypot
 
-// API Key for authentication (set in Vercel Environment Variables)
-const API_KEY = process.env.HONEYPOT_API_KEY || "honeyguard-api-key-2026";
+// API Key for authentication (MUST be set in Vercel Environment Variables)
+const API_KEY = process.env.HONEYPOT_API_KEY;
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -27,6 +27,15 @@ export default async function handler(req, res) {
   Object.entries(corsHeaders).forEach(([key, value]) => {
     res.setHeader(key, value);
   });
+
+  // Check if API key is configured
+  if (!API_KEY) {
+    return res.status(500).json({
+      success: false,
+      error: "Server configuration error",
+      message: "API key not configured. Contact administrator.",
+    });
+  }
 
   // Validate API key
   const apiKey = req.headers["x-api-key"];
