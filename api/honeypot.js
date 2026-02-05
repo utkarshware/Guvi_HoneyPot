@@ -146,8 +146,11 @@ export default async function handler(req, res) {
       let allScammerText = textToAnalyze;
       if (conversationHistory && Array.isArray(conversationHistory)) {
         conversationHistory.forEach(msg => {
-          if (msg.sender === 'scammer' && msg.text) {
-            allScammerText += ' ' + msg.text;
+          // Support both 'sender' and 'role', and 'text'/'message'/'content'
+          const sender = msg.sender || msg.role || '';
+          const msgText = msg.text || msg.message || msg.content || '';
+          if ((sender === 'scammer' || sender === 'attacker' || sender === 'caller') && msgText) {
+            allScammerText += ' ' + msgText;
           }
         });
       }
@@ -208,14 +211,17 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   
   if (conversationHistory && Array.isArray(conversationHistory)) {
     conversationHistory.forEach(msg => {
-      if (msg.sender === 'honeypot' || msg.sender === 'victim' || msg.sender === 'user') {
+      // Handle both 'sender' and 'role' field names for compatibility
+      const sender = msg.sender || msg.role || '';
+      const msgText = msg.text || msg.message || msg.content || '';
+      
+      if (sender === 'honeypot' || sender === 'victim' || sender === 'user' || sender === 'assistant') {
         turnNumber++;
-        const msgText = msg.text || msg.message || '';
         allHoneypotMessages += ' ' + msgText;
         previousHoneypotResponses.push(msgText.toLowerCase());
       }
-      if (msg.sender === 'scammer') {
-        allScammerMessages += ' ' + (msg.text || msg.message || '');
+      if (sender === 'scammer' || sender === 'attacker' || sender === 'caller') {
+        allScammerMessages += ' ' + msgText;
       }
     });
   }
