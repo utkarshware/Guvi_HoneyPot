@@ -90,42 +90,48 @@ export default async function handler(req, res) {
       // Ensure body is an object
       body = body || {};
 
-      // Extract text content from request - support multiple field names
-      const { text, message, content, input, query, data, sessionId } = body;
-      const textToAnalyze = text || message || content || input || query || (typeof data === 'string' ? data : '') || "";
+      // Extract text content - handle GUVI's nested message format
+      const { text, message, content, input, query, data, sessionId, conversationHistory, metadata } = body;
+      
+      // Handle nested message object from GUVI format: {message: {sender, text, timestamp}}
+      let textToAnalyze = "";
+      if (typeof message === 'object' && message !== null && message.text) {
+        textToAnalyze = message.text;
+      } else if (typeof message === 'string') {
+        textToAnalyze = message;
+      } else if (typeof text === 'string') {
+        textToAnalyze = text;
+      } else if (typeof content === 'string') {
+        textToAnalyze = content;
+      } else if (typeof input === 'string') {
+        textToAnalyze = input;
+      } else if (typeof query === 'string') {
+        textToAnalyze = query;
+      } else if (typeof data === 'string') {
+        textToAnalyze = data;
+      }
 
-      // If no text provided, return a valid response with minimal analysis
+      // If no text provided, return a valid response
       if (!textToAnalyze) {
         return res.status(200).json({
-          success: true,
+          status: "success",
+          reply: "Hello, I'm here. What would you like to discuss?",
           sessionId: sessionId || generateSessionId(),
           timestamp: new Date().toISOString(),
-          analysis: {
-            scamDetected: false,
-            confidence: 0,
-            riskLevel: "Unknown",
-            riskScore: 0,
-          },
-          message: "No text content provided for analysis",
-          extractedIntelligence: {
-            bankAccounts: [],
-            upiIds: [],
-            phishingLinks: [],
-            phoneNumbers: [],
-            suspiciousKeywords: [],
-          },
-          patterns: [],
-          recommendations: ["Please provide text content for scam analysis"],
-          agentNotes: "Empty or missing content field",
         });
       }
 
       // Perform scam analysis
       const analysisResult = analyzeForScam(textToAnalyze);
 
-      // Build response in GUVI expected format
+      // Generate honeypot reply that engages the scammer
+      const honeypotReply = generateHoneypotReply(textToAnalyze, analysisResult);
+
+      // Build response in GUVI expected format: {status, reply}
       const response = {
-        success: true,
+        status: "success",
+        reply: honeypotReply,
+        // Include additional analysis data
         sessionId: sessionId || generateSessionId(),
         timestamp: new Date().toISOString(),
         analysis: {
@@ -162,6 +168,76 @@ export default async function handler(req, res) {
 // Generate unique session ID
 function generateSessionId() {
   return `hp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Generate honeypot reply to engage scammer and extract intelligence
+function generateHoneypotReply(scammerMessage, analysis) {
+  const lowerMessage = scammerMessage.toLowerCase();
+  
+  // Honeypot responses designed to keep scammer engaged and extract info
+  const responses = {
+    // For account/bank related scams
+    account: [
+      "Oh no! Why is my account being suspended? I just deposited money yesterday.",
+      "This is very concerning. Can you tell me which account you're referring to?",
+      "I have multiple bank accounts. Which one has the issue?",
+      "My account? But I just checked it this morning. What happened?",
+    ],
+    // For verification/OTP scams
+    verification: [
+      "I can verify right away. What information do you need from me?",
+      "Sure, I want to fix this immediately. How do I verify?",
+      "I'm worried now. What details should I share for verification?",
+      "Yes, please help me verify. What's the process?",
+    ],
+    // For prize/lottery scams
+    prize: [
+      "I won something? That's amazing! How do I claim my prize?",
+      "Really? What did I win? I never win anything!",
+      "Wow! What do I need to do to receive the prize money?",
+    ],
+    // For urgent/threat scams
+    urgent: [
+      "Please don't block my account! What should I do immediately?",
+      "I'm very worried now. How can I resolve this urgently?",
+      "This sounds serious. Please tell me what I need to do right now.",
+    ],
+    // For payment/transfer scams
+    payment: [
+      "I can make the payment. Which account should I transfer to?",
+      "How much do I need to pay? I want to fix this today.",
+      "Should I use UPI or bank transfer? What's your payment ID?",
+    ],
+    // Default engaging responses
+    default: [
+      "I don't quite understand. Can you explain more about this issue?",
+      "This sounds important. Can you give me more details?",
+      "I want to cooperate. What exactly do you need from me?",
+      "Please help me understand. What should I do next?",
+      "I'm concerned about this. Can you tell me more?",
+    ],
+  };
+
+  // Select response category based on scam patterns detected
+  let category = "default";
+  
+  if (lowerMessage.includes("account") || lowerMessage.includes("bank") || lowerMessage.includes("suspend") || lowerMessage.includes("block")) {
+    category = "account";
+  } else if (lowerMessage.includes("verify") || lowerMessage.includes("otp") || lowerMessage.includes("confirm") || lowerMessage.includes("kyc")) {
+    category = "verification";
+  } else if (lowerMessage.includes("prize") || lowerMessage.includes("won") || lowerMessage.includes("lottery") || lowerMessage.includes("winner")) {
+    category = "prize";
+  } else if (lowerMessage.includes("urgent") || lowerMessage.includes("immediate") || lowerMessage.includes("today") || lowerMessage.includes("now")) {
+    category = "urgent";
+  } else if (lowerMessage.includes("pay") || lowerMessage.includes("transfer") || lowerMessage.includes("send") || lowerMessage.includes("upi")) {
+    category = "payment";
+  }
+  
+  // Pick a random response from the category
+  const categoryResponses = responses[category];
+  const randomIndex = Math.floor(Math.random() * categoryResponses.length);
+  
+  return categoryResponses[randomIndex];
 }
 
 // Scam analysis function
