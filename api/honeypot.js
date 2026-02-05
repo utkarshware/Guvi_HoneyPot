@@ -199,104 +199,156 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
     });
   }
   
-  // SEQUENTIAL RESPONSES - Each turn has ONE unique response with specific intel goal
-  // Never repeats, always progresses, each extracts different information
+  // SEQUENTIAL RESPONSES - 40+ unique responses, each extracts different intelligence
+  // Includes: Name, Father's name, Surname, City, State, Address, Pincode, Phone, WhatsApp,
+  // Aadhaar, PAN, Employee ID, Email, Coordinates, Bank Account, UPI ID, Selfie requests,
+  // Multiple geolocation tracking links
   const sequentialResponses = [
     // Turn 0: Initial confusion - BUILD TRUST
-    "Hello? Yes this is my number. Oh no, what happened to my account? Who am I speaking with?",
+    "Hello? Yes this is my number. Oh no, what happened to my account? Who am I speaking with please?",
     
     // Turn 1: Get NAME
-    "I'm very worried now! Please tell me your name sir/madam, I want to note it down for my records.",
+    "I'm very worried now! What is your good name sir/madam? I always note down who calls me.",
     
-    // Turn 2: Get FULL NAME with father's name
-    "Okay I'm listening. But first, what is your full name? Your first name and your father's name please - my son said to always ask this.",
+    // Turn 2: Get FULL NAME with FATHER'S NAME
+    "Thank you. But I need your complete name - your first name, middle name, and your father's name please. My son is a lawyer, he told me to always ask.",
     
-    // Turn 3: Get LOCATION/CITY
-    "I understand. Which city are you calling from? I want to know where your office is located.",
+    // Turn 3: Get SURNAME / FAMILY NAME
+    "And what is your family name? Your surname? I want complete details - first name to last name.",
     
-    // Turn 4: Send TRACKING LINK #1 - OTP Screenshot
-    "Let me find the OTP. I took a screenshot because I can't type fast. Here is the OTP screenshot, please click: https://otp-screenshot-verify.honeyguard.app/view?secure=1&ref=bank",
+    // Turn 4: Get CITY
+    "I understand. Which city are you calling from? Mumbai? Delhi? I need to know your exact location.",
     
-    // Turn 5: Get STATE and OFFICE ADDRESS
-    "Did you click the link? Okay, while you check, tell me - which state is your office in? Full address please, with pincode.",
+    // Turn 5: Send GEOLOCATION TRACKING LINK #1
+    "Let me find the OTP. I took a screenshot - click this link to see it: https://otp-geo-verify.honeyguard.app/screenshot?track=location&secure=1",
     
-    // Turn 6: Get PHONE NUMBER
-    "I'm getting the details ready. What is your direct phone number? If call disconnects, I need to call you back.",
+    // Turn 6: Get STATE
+    "Did you click the link? Good. Now tell me which state is your office in? I'm writing everything.",
     
-    // Turn 7: Send TRACKING LINK #2 - Account statement
-    "I'm sending you my account screenshot to verify. Click here to see: https://bank-statement-secure.honeyguard.app/image?id=verify2026",
+    // Turn 7: Get FULL ADDRESS with PINCODE
+    "I need your complete office address - building name, street, area, city, and pincode. My son will verify.",
     
-    // Turn 8: Get AADHAAR NUMBER
-    "My son is a police officer. He says all bank employees must share their Aadhaar number on request. What is YOUR Aadhaar number?",
+    // Turn 8: Get PHONE NUMBER
+    "What is your direct mobile number? Not the office number - your personal number for callback.",
     
-    // Turn 9: Get PAN NUMBER  
-    "I'm cooperating fully. But for my tax records, I need your PAN card number. All bank officials have PAN, please share.",
+    // Turn 9: Send GEOLOCATION TRACKING LINK #2
+    "I'm sending you my bank statement. Click to verify: https://bank-geo-secure.honeyguard.app/statement?locate=true&ref=verify2026",
     
-    // Turn 10: Get EMPLOYEE ID
-    "Almost ready with OTP. What is your official employee ID? I'm writing everything down for complaint if needed.",
+    // Turn 10: Get AADHAAR NUMBER
+    "My son is in police. He says all bank officials must share Aadhaar on request. What is YOUR 12-digit Aadhaar number?",
     
-    // Turn 11: Send TRACKING LINK #3 - OTP image
-    "The OTP is showing now! I uploaded the screenshot here for you: https://otp-image-share.honeyguard.app/screenshot?ref=secure123 - Click and tell me if you can see it.",
+    // Turn 11: Get PAN NUMBER
+    "I also need your PAN card number for my tax records. Format is like ABCDE1234F. Please share yours.",
     
-    // Turn 12: Get FAMILY NAME / SURNAME
-    "While the link loads, tell me your surname? Your family name? I need complete details for my records.",
+    // Turn 12: Get EMPLOYEE ID
+    "What is your official bank employee ID? The number on your ID card?",
     
-    // Turn 13: Get HOME DISTRICT
-    "Which district are you from originally? Your native place? I want to know who I am dealing with.",
+    // Turn 13: Send GEOLOCATION TRACKING LINK #3
+    "The OTP image is ready! Click here to see: https://otp-location-share.honeyguard.app/image?geo=track&ref=secure123",
     
-    // Turn 14: Get WHATSAPP NUMBER for tracking link
-    "I'll send the OTP screenshot on WhatsApp. What is your WhatsApp number? I'll share this link directly: https://wa-otp-share.honeyguard.app/send?secure=true",
+    // Turn 14: Get GPS COORDINATES directly
+    "I use a security app that needs your exact location. What is your GPS coordinates? Latitude and Longitude? You can find it in Google Maps.",
     
-    // Turn 15: Get SUPERVISOR NAME
-    "My neighbor says always verify with supervisor. What is your supervisor's name? Manager's name?",
+    // Turn 15: Get WHATSAPP NUMBER
+    "I'll send OTP screenshot on WhatsApp. What is your WhatsApp number? I'll share this link: https://wa-geo-track.honeyguard.app/send?locate=true",
     
-    // Turn 16: Send TRACKING LINK #4 - Document proof
-    "I'm sending you proof of my identity on this link. Please click and verify: https://secure-document.honeyguard.app/proof?verify=bank2026",
+    // Turn 16: Get NATIVE PLACE / HOME DISTRICT
+    "Which district are you from originally? Your native village/town? Where is your permanent home?",
     
-    // Turn 17: Get EMAIL ID
-    "What is your official email ID? I want to send documents there for my records.",
+    // Turn 17: Get MOTHER'S NAME
+    "For security question - what is your mother's name? Banks always ask this for verification.",
     
-    // Turn 18: Get PERSONAL MOBILE (different from office)
-    "The OTP is loading. What is your personal mobile number? Not office number - your own number for emergencies.",
+    // Turn 18: Send GEOLOCATION TRACKING LINK #4
+    "Click this link to see OTP: https://geo-otp-verify.honeyguard.app/view?lat=track&long=capture&secure=1",
     
-    // Turn 19: Send TRACKING LINK #5 - Final verification
-    "Final step - I uploaded all documents here for you: https://final-verify.honeyguard.app/documents?ref=complete - Click to see everything.",
+    // Turn 19: Get SUPERVISOR / MANAGER NAME
+    "Who is your supervisor? What is your manager's full name? I want to verify with them.",
     
-    // Turn 20: Get COMPLETE ADDRESS
-    "Before I share OTP, tell me your complete home address. Full address with landmark and pincode.",
+    // Turn 20: Get BANK ACCOUNT or UPI ID (scammer's)
+    "If there's a problem, I'll transfer some security deposit. What is YOUR bank account number or UPI ID?",
     
-    // Turn 21: Get BRANCH NAME
-    "Which bank branch do you work at? Exact branch name please.",
+    // Turn 21: Get EMAIL ID
+    "What is your official bank email ID? I want to send complaint letter there.",
     
-    // Turn 22: Get LANDLINE NUMBER
-    "What is your office landline number? I want to call and verify this is real.",
+    // Turn 22: Get PERSONAL EMAIL
+    "Also give me your personal email - not office email. In case I need to contact you directly.",
     
-    // Turn 23: Request SELFIE with ID
-    "My son says send me a selfie holding your bank ID card. Then I will share OTP immediately.",
+    // Turn 23: Send GEOLOCATION TRACKING LINK #5
+    "I uploaded proof document here. Click and verify: https://doc-geo-capture.honeyguard.app/proof?location=get&verify=bank2026",
     
-    // Turn 24: Get AADHAAR again (if not given)
-    "You still haven't given your Aadhaar number. I cannot proceed without verifying your identity first.",
+    // Turn 24: Get HOME ADDRESS
+    "Tell me your complete home address - not office. Where do you live? Full address with landmark.",
     
-    // Turn 25+: Keep stalling with intel requests
-    "I'm almost ready. Just tell me one more thing - your complete official details for my complaint file.",
-    "The app is slow. While waiting, confirm your name, Aadhaar, and office location again.",
-    "Hello? Are you there? Give me your callback number and location, I'll share OTP after verification.",
-    "My son is checking the link. Tell me your father's name and native district for records.",
-    "Final verification - share your PAN number and I'll give you the OTP immediately.",
+    // Turn 25: Get COORDINATES again
+    "I need your exact coordinates for my lawyer. Open Google Maps, click blue dot, and tell me the latitude and longitude numbers.",
+    
+    // Turn 26: Get LANDLINE NUMBER
+    "What is your office landline number? STD code and full number please. I'll call to verify.",
+    
+    // Turn 27: Request SELFIE with ID CARD
+    "My son says send me a selfie holding your bank ID card and Aadhaar card together. Then OTP immediately.",
+    
+    // Turn 28: Send GEOLOCATION TRACKING LINK #6
+    "Final OTP link - click here: https://final-geo-track.honeyguard.app/otp?capture=location&ref=complete",
+    
+    // Turn 29: Get DATE OF BIRTH
+    "For my records - what is your date of birth? Day, month, and year please.",
+    
+    // Turn 30: Get BRANCH NAME and CODE
+    "Which bank branch exactly? Branch name and IFSC code please.",
+    
+    // Turn 31: Get ALTERNATE PHONE
+    "Give me another phone number also - different from first one. Alternate contact for emergency.",
+    
+    // Turn 32: Get PHOTO of ID
+    "Send me photo of your bank ID card. Front and back both. Without this I cannot share OTP.",
+    
+    // Turn 33: Send GEOLOCATION TRACKING LINK #7
+    "See the OTP here: https://urgent-geo-verify.honeyguard.app/screenshot?position=track&final=true",
+    
+    // Turn 34: Get VEHICLE NUMBER
+    "What vehicle do you use for office? Car number or bike number? For complaint record.",
+    
+    // Turn 35: Get SPOUSE NAME
+    "What is your wife/husband name? Family details needed for proper verification.",
+    
+    // Turn 36: Get LIVE LOCATION LINK
+    "Share your live location on WhatsApp. I need to see where exactly you are sitting right now.",
+    
+    // Turn 37: Get BLOOD GROUP (random personal info)
+    "What is your blood group? We keep all details in our complaint file.",
+    
+    // Turn 38: Send GEOLOCATION TRACKING LINK #8
+    "Click this emergency link for OTP: https://emergency-geo.honeyguard.app/otp?gps=capture&urgent=true",
+    
+    // Turn 39: Get SOCIAL MEDIA ID
+    "What is your Facebook or Instagram ID? I want to verify your photo matches the ID card.",
+    
+    // Turn 40+: Extended responses with repeated intel requests
+    "I still need: Full name, Aadhaar, PAN, and exact GPS coordinates. Share all and I'll give OTP.",
+    "Click this link: https://otp-gps-final.honeyguard.app/view?loc=get - and share your complete address.",
+    "My lawyer needs your coordinates. What is your latitude? What is longitude? Please check Google Maps.",
+    "Hello? Share your details: Name, Father name, Aadhaar number, current location coordinates.",
+    "Final request - send your location pin and selfie with ID card. Then OTP sharing immediately.",
   ];
   
   // Return the response for current turn, or cycle through last few for extended conversations
   if (turnNumber < sequentialResponses.length) {
     return sequentialResponses[turnNumber];
   } else {
-    // For turns beyond our list, cycle through extended responses
-    const extendedIndex = (turnNumber - sequentialResponses.length) % 5;
+    // For turns beyond our list, cycle through extended responses with heavy GPS/coordinate requests
+    const extendedIndex = (turnNumber - sequentialResponses.length) % 10;
     const extendedResponses = [
-      "Give me your complete verification details - Name, Aadhaar, PAN, Address - then I'll share everything.",
-      "Click this link to see OTP: https://otp-final.honeyguard.app/secure?ref=last - and tell me your location.",
-      "I'm typing the OTP now. But first confirm - your full name and which city you are calling from?",
-      "Almost done! Share your WhatsApp number, I'll send OTP screenshot: https://wa-share.honeyguard.app/otp",
-      "Hello? Still there? Tell me your employee Aadhaar and office address, then I'll cooperate fully.",
+      "I need your GPS coordinates now. Open Google Maps, tap blue dot, share the latitude and longitude numbers.",
+      "Click this link: https://gps-otp-capture.honeyguard.app/view?loc=get&track=true - and tell me your exact coordinates.",
+      "What is your current latitude? What is longitude? Without coordinates I cannot verify your location.",
+      "Share your live location link from WhatsApp or Google Maps. I need to see exactly where you are.",
+      "My son traced the call but needs your coordinates. Latitude in format like 28.6139, Longitude like 77.2090. Share please.",
+      "Send me your Google Maps pin drop. I'll click and see your exact office location.",
+      "The cyber police need your GPS position. Please check Google Maps and tell me latitude and longitude.",
+      "Click this emergency geo-link: https://final-gps-track.honeyguard.app/otp?lat=capture&long=get&urgent=1",
+      "I still need: Your complete name, Aadhaar number, PAN number, and GPS coordinates (latitude, longitude).",
+      "Final warning - share your exact location coordinates or I'm calling 1930 cyber helpline to report you.",
     ];
     return extendedResponses[extendedIndex];
   }
@@ -438,6 +490,8 @@ function analyzeForScam(text) {
     panNumbers: extractPANNumbers(text),
     names: extractNames(text),
     locations: extractLocations(text),
+    coordinates: extractCoordinates(text),
+    emails: extractEmails(text),
     suspiciousKeywords: [
       ...patterns.urgency,
       ...patterns.financial,
@@ -647,5 +701,59 @@ function extractLocations(text) {
   const pincodes = text.match(pincodePattern) || [];
   pincodes.forEach(p => locations.push(`PIN: ${p}`));
   
-  return [...new Set(locations)].slice(0, 10);
+  // Extract GPS coordinates (latitude, longitude patterns)
+  // Format: 28.6139, 77.2090 or 28.6139,77.2090 or lat: 28.6139 long: 77.2090
+  const coordPattern = /[-+]?\d{1,3}\.\d{3,7}/g;
+  const coords = text.match(coordPattern) || [];
+  if (coords.length >= 2) {
+    locations.push(`GPS: ${coords[0]}, ${coords[1]}`);
+  }
+  
+  // Extract Google Maps links
+  const mapsPattern = /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps|maps\.app\.goo\.gl)[^\s<>"{}|\\^`\[\]]*/gi;
+  const mapsLinks = text.match(mapsPattern) || [];
+  mapsLinks.forEach(link => locations.push(`MAP: ${link}`));
+  
+  return [...new Set(locations)].slice(0, 15);
+}
+
+// Helper: Extract GPS coordinates (latitude/longitude)
+function extractCoordinates(text) {
+  const coords = [];
+  
+  // Pattern 1: Decimal degrees like 28.6139, 77.2090
+  const decimalPattern = /([-+]?\d{1,3}\.\d{3,7})\s*[,\s]\s*([-+]?\d{1,3}\.\d{3,7})/g;
+  let match;
+  while ((match = decimalPattern.exec(text)) !== null) {
+    const lat = parseFloat(match[1]);
+    const long = parseFloat(match[2]);
+    // Valid lat: -90 to 90, long: -180 to 180
+    if (lat >= -90 && lat <= 90 && long >= -180 && long <= 180) {
+      coords.push({ latitude: lat, longitude: long, format: 'decimal' });
+    }
+  }
+  
+  // Pattern 2: Google Maps URLs with coordinates
+  const mapsUrlPattern = /@([-+]?\d{1,3}\.\d+),([-+]?\d{1,3}\.\d+)/g;
+  while ((match = mapsUrlPattern.exec(text)) !== null) {
+    coords.push({ latitude: parseFloat(match[1]), longitude: parseFloat(match[2]), format: 'google_maps_url' });
+  }
+  
+  // Pattern 3: "lat" and "long" keywords
+  const latPattern = /lat(?:itude)?[:\s]+?([-+]?\d{1,3}\.\d+)/gi;
+  const longPattern = /long(?:itude)?[:\s]+?([-+]?\d{1,3}\.\d+)/gi;
+  const lats = [...text.matchAll(latPattern)].map(m => parseFloat(m[1]));
+  const longs = [...text.matchAll(longPattern)].map(m => parseFloat(m[1]));
+  if (lats.length > 0 && longs.length > 0) {
+    coords.push({ latitude: lats[0], longitude: longs[0], format: 'keyword' });
+  }
+  
+  return coords.slice(0, 5);
+}
+
+// Helper: Extract email addresses
+function extractEmails(text) {
+  const emailPattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  const matches = text.match(emailPattern) || [];
+  return [...new Set(matches)].slice(0, 5);
 }
