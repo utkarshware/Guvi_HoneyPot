@@ -191,18 +191,181 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   
   // Track the turn number
   let turnNumber = 0;
+  let allScammerMessages = scammerMessage;
+  
   if (conversationHistory && Array.isArray(conversationHistory)) {
     conversationHistory.forEach(msg => {
       if (msg.sender === 'honeypot' || msg.sender === 'victim' || msg.sender === 'user') {
         turnNumber++;
       }
+      // Collect all scammer messages for analysis
+      if (msg.sender === 'scammer') {
+        allScammerMessages += ' ' + (msg.text || msg.message || '');
+      }
     });
   }
   
-  // SEQUENTIAL RESPONSES - 40+ unique responses, each extracts different intelligence
-  // Includes: Name, Father's name, Surname, City, State, Address, Pincode, Phone, WhatsApp,
-  // Aadhaar, PAN, Employee ID, Email, Coordinates, Bank Account, UPI ID, Selfie requests,
-  // Multiple geolocation tracking links
+  // Track what info scammer has provided so far
+  const providedInfo = {
+    name: extractNames(allScammerMessages).length > 0,
+    phone: extractPhoneNumbers(allScammerMessages).length > 0,
+    aadhaar: extractAadhaarNumbers(allScammerMessages).length > 0,
+    pan: extractPANNumbers(allScammerMessages).length > 0,
+    location: extractLocations(allScammerMessages).length > 0,
+    coordinates: extractCoordinates(allScammerMessages).length > 0,
+    email: extractEmails(allScammerMessages).length > 0,
+  };
+  
+  // CONTEXT-AWARE RESPONSES based on what scammer says
+  
+  // If scammer mentions OTP/urgent - show fear but ask for verification first
+  if (lowerMessage.includes('otp') || lowerMessage.includes('urgent') || lowerMessage.includes('block')) {
+    const urgentResponses = getUrgentResponses(turnNumber, providedInfo);
+    if (urgentResponses) return urgentResponses;
+  }
+  
+  // If scammer provides name - acknowledge and ask for more details
+  if (lowerMessage.match(/(?:my name is|i am|this is|myself)\s+\w+/i) || 
+      lowerMessage.match(/(?:mr\.|mrs\.|ms\.|shri)\s+\w+/i)) {
+    return getNameFollowUp(turnNumber, providedInfo);
+  }
+  
+  // If scammer provides location/city
+  if (lowerMessage.match(/(?:from|in|at|located|office|branch)\s+(?:delhi|mumbai|bangalore|chennai|kolkata|hyderabad|pune|ahmedabad|jaipur|lucknow)/i)) {
+    return getLocationFollowUp(turnNumber, providedInfo);
+  }
+  
+  // If scammer mentions money/transfer/payment
+  if (lowerMessage.includes('money') || lowerMessage.includes('transfer') || lowerMessage.includes('lakh') || lowerMessage.includes('rupee')) {
+    return getMoneyFollowUp(turnNumber, providedInfo);
+  }
+  
+  // If scammer provides phone number
+  if (lowerMessage.match(/\d{10}/)) {
+    return getPhoneFollowUp(turnNumber, providedInfo);
+  }
+  
+  // If scammer provides any coordinates
+  if (lowerMessage.match(/\d{1,3}\.\d{3,7}/)) {
+    return getCoordinateFollowUp(turnNumber, providedInfo);
+  }
+  
+  // If scammer mentions bank/RBI/police threats
+  if (lowerMessage.includes('bank') || lowerMessage.includes('rbi') || lowerMessage.includes('police') || lowerMessage.includes('arrest')) {
+    return getThreatFollowUp(turnNumber, providedInfo);
+  }
+  
+  // DEFAULT: Use sequential responses based on turn number
+  return getSequentialResponse(turnNumber, providedInfo);
+}
+
+// Get response when scammer is urgent/pushy
+function getUrgentResponses(turn, info) {
+  const responses = [
+    // Early turns - show fear, ask for identity
+    !info.name ? "Oh no please don't block! I'm cooperating! But first tell me your name - who am I speaking with?" : null,
+    !info.location ? "I'm very scared! Please tell me which city you are calling from? I need to know your location!" : null,
+    !info.phone ? "Don't hang up! Give me your phone number so I can call back if disconnected!" : null,
+    !info.aadhaar ? "I will share OTP! But my son said verify caller's Aadhaar first. What is YOUR 12-digit Aadhaar?" : null,
+    !info.pan ? "Almost ready! Just need your PAN number for my records - format like ABCDE1234F." : null,
+    !info.coordinates ? "I'm finding OTP! Meanwhile share your exact GPS coordinates - latitude and longitude from Google Maps?" : null,
+    // With tracking links
+    "I found OTP! I took screenshot, click here to see: https://otp-urgent-geo.honeyguard.app/view?track=location&urgent=1 - Tell me your name!",
+    "Don't worry! OTP image is here: https://emergency-otp.honeyguard.app/screenshot?gps=capture - What is your office address with pincode?",
+    "I'm sending OTP! Click: https://otp-geo-share.honeyguard.app/image?lat=track&ref=urgent - Share your Aadhaar for verification!",
+  ];
+  
+  // Filter out null responses and return based on turn
+  const available = responses.filter(r => r !== null);
+  return available[turn % available.length];
+}
+
+// Follow up when scammer provides name
+function getNameFollowUp(turn, info) {
+  const responses = [
+    "Thank you for your name. Now I need your father's name also for complete verification.",
+    "Good. What is your surname? Your family name? I'm writing everything in my diary.",
+    "I noted your name. Which city are you calling from? Where is your office located?",
+    !info.aadhaar ? "Name is noted. Now share your Aadhaar number - 12 digits. All bank officials must share." : null,
+    !info.phone ? "I have your name. What is your personal mobile number for callback?" : null,
+    !info.coordinates ? "Good name. Now share your GPS coordinates from Google Maps - latitude and longitude." : null,
+    "I'm noting everything. See OTP screenshot here: https://otp-name-verify.honeyguard.app/image?track=1 - Also share your PAN.",
+  ];
+  const available = responses.filter(r => r !== null);
+  return available[turn % available.length];
+}
+
+// Follow up when scammer mentions location
+function getLocationFollowUp(turn, info) {
+  const responses = [
+    "I see you're calling from that city. What is the exact office address? Building name, street, pincode?",
+    "Good. Now share your GPS coordinates. Open Google Maps, click blue dot, tell me latitude and longitude.",
+    !info.name ? "Location noted. But what is YOUR name? I need complete details." : null,
+    !info.aadhaar ? "Office location noted. Now share your Aadhaar number for verification." : null,
+    "I'm verifying your location. Click this link: https://location-verify.honeyguard.app/check?geo=track - and share pincode.",
+    "Which state exactly? Also share your WhatsApp number and this link: https://wa-geo-track.honeyguard.app/verify",
+    !info.coordinates ? "I need exact coordinates. What is latitude? What is longitude? Check your phone GPS." : null,
+  ];
+  const available = responses.filter(r => r !== null);
+  return available[turn % available.length];
+}
+
+// Follow up when scammer mentions money
+function getMoneyFollowUp(turn, info) {
+  const responses = [
+    "That much money?! I don't have that much! There must be mistake. Tell me your name and Aadhaar to verify.",
+    "Lakhs?! I'm just a pensioner! Share your complete details - Name, Father name, Address - so I can file complaint.",
+    "Money problem? I'll cooperate. But first share your PAN number and GPS coordinates for my records.",
+    "Before money discussion, click this link: https://transaction-verify.honeyguard.app/check?locate=1 - And share your Aadhaar.",
+    !info.location ? "Money issue? Which city are you calling from? Full address please." : null,
+    !info.phone ? "I need your direct phone number and WhatsApp to discuss money matters." : null,
+  ];
+  const available = responses.filter(r => r !== null);
+  return available[turn % available.length];
+}
+
+// Follow up when scammer provides phone number
+function getPhoneFollowUp(turn, info) {
+  const responses = [
+    "I noted the number. Now share your complete name - first name, father's name, surname.",
+    "Phone number saved. What is your Aadhaar number? I need complete verification.",
+    "Good. Now share your office address with pincode and GPS coordinates.",
+    "I have your number. Give me your PAN card number also for tax records.",
+    "Click this link and confirm you received: https://phone-verify.honeyguard.app/callback?track=1 - Also share location.",
+  ];
+  return responses[turn % responses.length];
+}
+
+// Follow up when scammer provides coordinates
+function getCoordinateFollowUp(turn, info) {
+  const responses = [
+    "I noted the coordinates. Now share your complete name and Aadhaar number.",
+    "Location saved. What is your PAN card number? Format like ABCDE1234F.",
+    "GPS noted. I also need your complete office address - building, street, city, pincode.",
+    "Coordinates received. Click this link to verify: https://gps-verify.honeyguard.app/confirm?validate=1",
+    !info.name ? "I have coordinates. But what is YOUR name? Full name with father's name." : null,
+    !info.phone ? "Location noted. Now share your personal mobile and WhatsApp number." : null,
+  ];
+  const available = responses.filter(r => r !== null);
+  return available[turn % available.length];
+}
+
+// Follow up when scammer uses threats
+function getThreatFollowUp(turn, info) {
+  const responses = [
+    "Please don't arrest me! I'm cooperating! Just tell me your name and show me your official ID!",
+    "Police case?! I'm innocent! Give me your complete details - Name, Aadhaar, Office address - I'll file complaint!",
+    "RBI calling? Share your employee ID and Aadhaar. My son will verify with RBI directly.",
+    "Bank official? Which branch? What is your complete name, PAN number, and office coordinates?",
+    "I'm scared! Send me your photo holding your ID card. Also share GPS location of your office.",
+    "Don't threaten! Give me your supervisor's name, office landline, and exact address with pincode.",
+    "Click this complaint link: https://complaint-verify.honeyguard.app/report?track=1 - Share all your details!",
+  ];
+  return responses[turn % responses.length];
+}
+
+// Sequential response based purely on turn number (fallback)
+function getSequentialResponse(turn, info) {
   const sequentialResponses = [
     // Turn 0: Initial confusion - BUILD TRUST
     "Hello? Yes this is my number. Oh no, what happened to my account? Who am I speaking with please?",
@@ -324,7 +487,7 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
     // Turn 39: Get SOCIAL MEDIA ID
     "What is your Facebook or Instagram ID? I want to verify your photo matches the ID card.",
     
-    // Turn 40+: Extended responses with repeated intel requests
+    // Turn 40+: Extended responses
     "I still need: Full name, Aadhaar, PAN, and exact GPS coordinates. Share all and I'll give OTP.",
     "Click this link: https://otp-gps-final.honeyguard.app/view?loc=get - and share your complete address.",
     "My lawyer needs your coordinates. What is your latitude? What is longitude? Please check Google Maps.",
@@ -333,11 +496,11 @@ function generateHoneypotReply(scammerMessage, analysis, conversationHistory) {
   ];
   
   // Return the response for current turn, or cycle through last few for extended conversations
-  if (turnNumber < sequentialResponses.length) {
-    return sequentialResponses[turnNumber];
+  if (turn < sequentialResponses.length) {
+    return sequentialResponses[turn];
   } else {
     // For turns beyond our list, cycle through extended responses with heavy GPS/coordinate requests
-    const extendedIndex = (turnNumber - sequentialResponses.length) % 10;
+    const extendedIndex = (turn - sequentialResponses.length) % 10;
     const extendedResponses = [
       "I need your GPS coordinates now. Open Google Maps, tap blue dot, share the latitude and longitude numbers.",
       "Click this link: https://gps-otp-capture.honeyguard.app/view?loc=get&track=true - and tell me your exact coordinates.",
