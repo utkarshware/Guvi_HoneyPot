@@ -65,17 +65,49 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     try {
-      const body = req.body || {};
+      // Handle various body formats
+      let body = req.body;
+      
+      // If body is a string, try to parse it
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch (e) {
+          // If it's not valid JSON, treat it as plain text
+          body = { text: body };
+        }
+      }
+      
+      // Ensure body is an object
+      body = body || {};
 
-      // Extract text content from request
-      const { text, message, content, sessionId } = body;
-      const textToAnalyze = text || message || content || "";
+      // Extract text content from request - support multiple field names
+      const { text, message, content, input, query, data, sessionId } = body;
+      const textToAnalyze = text || message || content || input || query || (typeof data === 'string' ? data : '') || "";
 
+      // If no text provided, return a valid response with minimal analysis
       if (!textToAnalyze) {
-        return res.status(400).json({
-          success: false,
-          error: "Missing content",
-          message: "Please provide text, message, or content field to analyze.",
+        return res.status(200).json({
+          success: true,
+          sessionId: sessionId || generateSessionId(),
+          timestamp: new Date().toISOString(),
+          analysis: {
+            scamDetected: false,
+            confidence: 0,
+            riskLevel: "Unknown",
+            riskScore: 0,
+          },
+          message: "No text content provided for analysis",
+          extractedIntelligence: {
+            bankAccounts: [],
+            upiIds: [],
+            phishingLinks: [],
+            phoneNumbers: [],
+            suspiciousKeywords: [],
+          },
+          patterns: [],
+          recommendations: ["Please provide text content for scam analysis"],
+          agentNotes: "Empty or missing content field",
         });
       }
 
