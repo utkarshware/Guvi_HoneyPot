@@ -2,7 +2,7 @@
 // POST /api/voice-detection
 
 // API Key for authentication (set in Vercel Environment Variables)
-const API_KEY = process.env.VOICE_DETECTION_API_KEY;
+const API_KEY = process.env.VOICE_DETECTION_API_KEY || "honeyguard-voice-api-2026";
 
 // CORS headers for cross-origin requests
 const corsHeaders = {

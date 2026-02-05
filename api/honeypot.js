@@ -2,7 +2,7 @@
 // POST /api/honeypot
 
 // API Key for authentication (set in Vercel Environment Variables)
-const API_KEY = process.env.HONEYPOT_API_KEY;
+const API_KEY = process.env.HONEYPOT_API_KEY || "honeyguard-api-key-2026";
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
